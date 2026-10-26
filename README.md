@@ -11,10 +11,11 @@ Those inputs remain private and are referenced by SHA-256 in manifests.
 
 The `work/headless-frame-segment` branch contains the first buildable
 Tauri-free diagnostic profile. It reuses Phira chart and line rendering and
-supports a single PNG/frame or a bounded no-audio segment. Bounded requests
-replay deterministically from time zero; they do not yet seek through a saved
-scene state. Video backgrounds, full-faithful audio mixing and state
-checkpointing therefore remain on the existing AppImage path.
+supports a single PNG/frame or a bounded segment. Segment audio is opt-in
+`audio_mode=music-only` and contains source music only; the default remains
+silent. Bounded requests replay deterministically from time zero; they do not
+yet seek through a saved scene state. Video backgrounds, full-faithful audio
+mixing and state checkpointing therefore remain on the existing AppImage path.
 
 The branch is pushed to the private GitHub repository
 `Stickerbug/phira-render-beatglint`. See [`STATUS.md`](STATUS.md) for current

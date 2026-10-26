@@ -14,7 +14,7 @@ cannot be mistaken for a faithful gameplay render.
 Every output manifest must record renderer commit, binary SHA, skin SHA,
 chart/audio input SHAs, mode, state mode, time window, warmup, frame rate,
 and whether particles, effects, video and audio were enabled. A bounded
-request currently uses `state_mode=replay-from-zero`; `warmup_s` must remain
+request currently uses `state_mode=replay`; `warmup_s` must remain
 zero. A future checkpoint or resident worker must be introduced as a separate
 state mode and pass parity tests before it is enabled.
 
@@ -30,3 +30,10 @@ does not provide a random-access state checkpoint. `stateless` is reserved and
 fails closed until direct seeking has an explicit contract for judge state,
 particles, effects, and video. This prevents a caller from treating a future
 fast path as equivalent to Phira's full replay before parity is demonstrated.
+
+Segment requests may opt into `audio_mode=music-only`. This writes the source
+music sampled on the same absolute frame grid as the emitted segment and muxes
+it as AAC; it deliberately excludes click/drag/flick SFX and ending audio.
+Frame requests and the default `audio_mode=none` remain silent. The complete
+audio and video mix still belongs to `full-faithful` until its clock terms have
+been checked against the golden AppImage.

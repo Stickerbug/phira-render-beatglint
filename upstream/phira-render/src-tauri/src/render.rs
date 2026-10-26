@@ -33,6 +33,14 @@ use tempfile::NamedTempFile;
 
 use crate::render_plan::{PreviewMode, RenderPlan, StateMode};
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+enum BoundedAudioMode {
+    #[default]
+    None,
+    MusicOnly,
+}
+
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RenderConfig {
@@ -76,6 +84,10 @@ pub struct RenderConfig {
     end_s: Option<f64>,
     #[serde(default)]
     warmup_s: f64,
+    /// Optional audio for bounded segments. The first supported mode is
+    /// music-only; gameplay SFX remain reserved for the full-faithful path.
+    #[serde(default)]
+    audio_mode: BoundedAudioMode,
 }
 
 impl RenderConfig {
@@ -195,6 +207,11 @@ pub async fn main() -> Result<()> {
     let bounded = plan.mode != PreviewMode::Full;
     if bounded && plan.warmup_s != 0.0 {
         bail!("non-zero warmup is reserved until state checkpoints are implemented")
+    }
+    if params.config.audio_mode != BoundedAudioMode::None
+        && (plan.mode != PreviewMode::Segment || plan.state_mode != StateMode::Replay)
+    {
+        bail!("bounded audio requires segment mode with replay state")
     }
     let path = params.path;
 
@@ -368,6 +385,35 @@ pub async fn main() -> Result<()> {
     let fps = params.config.fps;
     let frame_delta = 1. / fps as f32;
 
+    // A bounded music-only segment uses the same absolute scene clock as the
+    // full mixer, but writes only the emitted frame-grid window. Keep the raw
+    // temporary alive until FFmpeg exits; frame output stays silent.
+    let mut bounded_audio_file = None;
+    if bounded && params.config.audio_mode == BoundedAudioMode::MusicOnly {
+        let (start_frame, end_frame) = plan.segment_frame_range(fps)?;
+        let scene_start = start_frame as f64 / fps as f64;
+        let duration = (end_frame - start_frame) as f64 / fps as f64;
+        let sample_rate = 44_100_u32;
+        let music_start_scene = O - chart.offset.min(0.) as f64;
+        let sample_count = (duration * sample_rate as f64).round() as usize;
+        let audio = NamedTempFile::new()?;
+        let mut writer = BufWriter::new(audio.as_file());
+        for sample_index in 0..sample_count {
+            let scene_time = scene_start + sample_index as f64 / sample_rate as f64;
+            let position = scene_time - music_start_scene;
+            let frame = if position >= 0.0 && position < music.length() as f64 {
+                music.sample(position as f32).unwrap_or_default()
+            } else {
+                Default::default()
+            };
+            writer.write_all(&(frame.0 * volume_music).to_le_bytes())?;
+            writer.write_all(&(frame.1 * volume_music).to_le_bytes())?;
+        }
+        writer.flush()?;
+        drop(writer);
+        bounded_audio_file = Some(audio);
+    }
+
     let mut proc = if bounded {
         let frame_png = plan.mode == PreviewMode::Frame
             && output_path.extension().and_then(|it| it.to_str()).is_some_and(|it| it.eq_ignore_ascii_case("png"));
@@ -379,10 +425,20 @@ pub async fn main() -> Result<()> {
         if frame_png {
             command.args(["-frames:v", "1", "-vf", "vflip", "-f", "image2"]);
         } else {
-            command.args([
-                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-b:v", &params.config.bitrate,
-                "-vf", "vflip", "-an", "-f", "mp4",
-            ]);
+            if let Some(audio) = bounded_audio_file.as_ref() {
+                command.args([
+                    "-f", "f32le", "-ar", "44100", "-ac", "2", "-i",
+                    audio.path().to_str().context("audio path is not UTF-8")?,
+                    "-map", "0:v:0", "-map", "1:a:0", "-c:v", "libx264", "-pix_fmt",
+                    "yuv420p", "-b:v", &params.config.bitrate, "-c:a", "aac", "-shortest",
+                    "-muxdelay", "0", "-muxpreload", "0", "-vf", "vflip", "-f", "mp4",
+                ]);
+            } else {
+                command.args([
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-b:v", &params.config.bitrate,
+                    "-vf", "vflip", "-an", "-f", "mp4",
+                ]);
+            }
         }
         command
             .arg(output_path)

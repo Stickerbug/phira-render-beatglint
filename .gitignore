@@ -10,5 +10,6 @@
 *.png
 *.jpg
 *.tar.gz
+/fixtures/outputs/
 .DS_Store
 /upstream/headless-render/target/

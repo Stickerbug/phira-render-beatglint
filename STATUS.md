@@ -23,7 +23,10 @@
 ## Explicit limitations
 
 - This is a diagnostic headless profile, not full-faithful evidence. It omits
-  video decoding and does not mux bounded audio.
+  video decoding; bounded output is silent by default. An explicit
+  `audio_mode=music-only` segment path now muxes only the source music on the
+  emitted frame grid, but it still needs a real Xorg smoke and is not full
+  gameplay-audio parity.
 - Bounded rendering replays from t=0 with a fixed frame step. Non-zero warmup
   is currently rejected until scene state can be checkpointed safely.
 - The full AppImage remains the golden reference for particles, video
