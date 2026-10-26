@@ -13,6 +13,9 @@ use prpr::{
     ui::{FontArc, TextPainter},
     Main,
 };
+#[cfg(feature = "headless-render")]
+use prpr::audio::AudioClip;
+#[cfg(not(feature = "headless-render"))]
 use sasa::AudioClip;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -124,7 +127,6 @@ pub async fn build_player(config: &RenderConfig) -> Result<BasicPlayer> {
         },
         id: 0,
         rks: config.player_rks,
-        historic_best: 0,
     })
 }
 
@@ -199,7 +201,7 @@ pub async fn main() -> Result<()> {
     };
     dbg!(&ffmpeg);
 
-    let mut painter = TextPainter::new(font, None);
+    let mut painter = TextPainter::new(font);
 
     let mut config = params.config.to_config();
     config.mods = Mods::AUTOPLAY;
@@ -336,7 +338,6 @@ pub async fn main() -> Result<()> {
                 config,
                 fs,
                 Some(player),
-                None,
                 None,
                 None,
             )
