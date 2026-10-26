@@ -604,6 +604,13 @@ pub async fn main() -> Result<()> {
         }
     }
     drop(input);
+    if !bounded {
+        unsafe {
+            use miniquad::gl::*;
+            glDeleteBuffers(N as _, pbos.as_ptr());
+            glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+        }
+    }
     proc.wait()?;
 
     send(IPCEvent::Done(render_start_time.elapsed().as_secs_f64()));
