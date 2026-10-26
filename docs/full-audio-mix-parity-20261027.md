@@ -21,3 +21,13 @@ reference input while bounding the mixer working set. The observed child
 maximum RSS was 178,224 KiB for this small smoke (including GL and runtime
 resources), and the render completed in about 1.27 s. No training, separation,
 or transcription was run.
+
+The full path also now drains the final two pixel-readback buffers and emits
+the first two completed buffers in order. This removes the old three-PBO
+pipeline's uninitialized leading frames and missing tail readbacks; it is an
+intentional dedicated-renderer correctness change, so the existing AppImage
+remains the visual reference until a frame-by-frame parity report is made.
+With that drain in place, the same smoke still produced 100 frames and exact
+decoded audio (new diagnostic output SHA
+`b20eb61b2db29c4edd16810e72bc95958dfbbc036ba52207f76cc665600c3f8e`, observed
+child RSS 177,332 KiB, elapsed about 1.60 s).

@@ -530,6 +530,21 @@ pub async fn main() -> Result<()> {
 
     send(IPCEvent::StartRender(output_frames));
 
+    let emit_pbo = |pbo: GLuint, input: &mut dyn Write| -> Result<()> {
+        unsafe {
+            use miniquad::gl::*;
+            glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
+            let src = glMapBuffer(GL_PIXEL_PACK_BUFFER, 0x88B8);
+            if src.is_null() {
+                bail!("failed to map completed pixel-readback buffer")
+            }
+            input.write_all(&std::slice::from_raw_parts(src as *const u8, byte_size))?;
+            glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+        }
+        send(IPCEvent::Frame);
+        Ok(())
+    };
+
     for frame in 0..frames {
         *my_time.borrow_mut() = (frame as f32 * frame_delta).max(0.) as f64;
         gl.quad_gl.render_pass(Some(mst.output().render_pass));
@@ -551,14 +566,10 @@ pub async fn main() -> Result<()> {
                 glBindFramebuffer(GL_READ_FRAMEBUFFER, internal_id(mst.output()));
                 glBindBuffer(GL_PIXEL_PACK_BUFFER, pbos[frame as usize % N]);
                 glReadPixels(0, 0, tex.width as _, tex.height as _, GL_RGBA, GL_UNSIGNED_BYTE, std::ptr::null_mut());
-                glBindBuffer(GL_PIXEL_PACK_BUFFER, pbos[(frame + 1) as usize % N]);
-                let src = glMapBuffer(GL_PIXEL_PACK_BUFFER, 0x88B8);
-                if !src.is_null() {
-                    input.write_all(&std::slice::from_raw_parts(src as *const u8, byte_size))?;
-                    glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
-                }
             }
-            send(IPCEvent::Frame);
+            if frame + 1 >= N as u64 {
+                emit_pbo(pbos[(frame + 1) as usize % N], &mut input)?;
+            }
         } else {
             let emit = match plan.mode {
                 PreviewMode::Frame => {
@@ -582,6 +593,14 @@ pub async fn main() -> Result<()> {
                 input.write_all(&rgba)?;
                 send(IPCEvent::Frame);
             }
+        }
+    }
+    if !bounded {
+        // The final N-1 readbacks are still resident in their PBOs. Drain them
+        // in frame order so the first and last frames are not silently lost.
+        let pending_start = frames.saturating_sub((N - 1) as u64);
+        for pending in pending_start..frames {
+            emit_pbo(pbos[pending as usize % N], &mut input)?;
         }
     }
     drop(input);

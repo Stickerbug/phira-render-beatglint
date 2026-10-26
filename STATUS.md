@@ -23,6 +23,10 @@
   the whole-song float buffer. Against the existing AppImage on the same
   Credits smoke, decoded stereo PCM was byte-identical; the comparison and
   measured RSS are recorded in `docs/full-audio-mix-parity-20261027.md`.
+- The full path's three-PBO readback now drains its pending tail and emits
+  completed frames in order. This is a deliberate dedicated-renderer
+  correctness change, so visual output still requires a separate frame-parity
+  report before replacing the AppImage reference.
 
 ## Explicit limitations
 
