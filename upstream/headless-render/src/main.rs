@@ -21,8 +21,19 @@ fn headless_conf() -> Conf {
 
 #[macroquad::main(headless_conf)]
 async fn main() {
-    if let Err(error) = render::main().await {
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(4)
+        .enable_all()
+        .build()
+        .expect("tokio runtime");
+    let _guard = runtime.enter();
+    let result = render::main().await;
+    if let Err(error) = result {
         eprintln!("{error:?}");
         std::process::exit(1);
     }
+    // macroquad/prpr may leave wakeable futures registered on the runtime.
+    // Exit like the upstream Tauri launcher instead of dropping that runtime
+    // after GL teardown, which can trigger a late segfault in headless mode.
+    std::process::exit(0);
 }

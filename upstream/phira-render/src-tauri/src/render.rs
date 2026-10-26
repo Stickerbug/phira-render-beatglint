@@ -168,7 +168,8 @@ pub fn find_ffmpeg() -> Result<Option<String>> {
 pub async fn main() -> Result<()> {
     use crate::ipc::client::*;
 
-    set_pc_assets_folder(&std::env::args().nth(2).unwrap());
+    let assets_path = std::env::args().last().context("renderer assets path is required")?;
+    set_pc_assets_folder(&assets_path);
 
     let mut stdin = std::io::stdin().lock();
     let stdin = &mut stdin;
