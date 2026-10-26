@@ -7,12 +7,13 @@ license = "GPL-3.0-only"
 [lib]
 
 [features]
-default = ["log", "file-dialog", "live-audio"]
+default = ["log", "file-dialog", "live-audio", "video"]
 closed = []
 log = ["dep:tracing-subscriber", "dep:colored"]
 file-dialog = ["dep:rfd"]
 headless = []
 live-audio = ["dep:sasa"]
+video = ["dep:prpr-avc"]
 
 [dependencies]
 anyhow = "1.0"
@@ -64,7 +65,7 @@ color-thief = "0.2.2"
 tracing-subscriber = { version = "0.3.17", optional = true }
 colored = { version = "2.0.0", optional = true }
 
-prpr-avc = { path = "../prpr-avc" }
+prpr-avc = { path = "../prpr-avc", optional = true }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 rfd = { version = "0.10", optional = true }

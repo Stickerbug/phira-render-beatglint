@@ -39,3 +39,10 @@ The headless branch also carries a small compatibility adjustment in the
 renderer entry for the pinned `prpr 0.4.0` API (`BasicPlayer`, `TextPainter`
 and `LoadingScene` signatures). This is a local source compatibility layer,
 not an assertion that the archived AppImage was linked from that exact API.
+
+The headless profile also omits `prpr-avc` video decoding and uses a no-op
+video type, so it can link without FFmpeg development libraries. This is an
+explicit diagnostic geometry profile; full-faithful video backgrounds stay on
+the existing AppImage path until a native video-enabled build is available.
+`cargo test --manifest-path upstream/headless-render/Cargo.toml` passes the four
+render-plan validation tests.

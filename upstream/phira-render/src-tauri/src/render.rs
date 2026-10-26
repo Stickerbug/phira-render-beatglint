@@ -183,8 +183,9 @@ pub async fn main() -> Result<()> {
         warmup_s: params.config.warmup_s,
     }
     .validate()?;
-    if plan.mode != PreviewMode::Full {
-        bail!("bounded render mode is protocol-only until native warmup/output is implemented")
+    let bounded = plan.mode != PreviewMode::Full;
+    if bounded && plan.warmup_s != 0.0 {
+        bail!("non-zero warmup is reserved until state checkpoints are implemented")
     }
     let path = params.path;
 
@@ -219,11 +220,7 @@ pub async fn main() -> Result<()> {
         }
     let music: Result<_> = async { AudioClip::new(fs.load_file(&info.music).await?) }.await;
     let music = music.with_context(|| tl!("load-music-failed"))?;
-    let ending = ld!("ending.mp3");
     let track_length = music.length() as f64;
-    let sfx_click = ld!("click.ogg");
-    let sfx_drag = ld!("drag.ogg");
-    let sfx_flick = ld!("flick.ogg");
 
     let mut gl = unsafe { get_internal_gl() };
 
@@ -231,95 +228,88 @@ pub async fn main() -> Result<()> {
     let volume_sfx = std::mem::take(&mut config.volume_sfx);
 
     let length = track_length - chart.offset.min(0.) as f64 + 1.;
-    let video_length = O + length + A + params.config.ending_length;
+    let video_length = if bounded {
+        plan.end_s.or(plan.start_s).unwrap()
+    } else {
+        O + length + A + params.config.ending_length
+    };
     let offset = chart.offset.max(0.);
 
     let render_start_time = Instant::now();
 
-    send(IPCEvent::StartMixing);
-    let mixing_output = NamedTempFile::new()?;
-    let sample_rate = 44100;
-    assert_eq!(sample_rate, ending.sample_rate());
-    assert_eq!(sample_rate, sfx_click.sample_rate());
-    assert_eq!(sample_rate, sfx_drag.sample_rate());
-    assert_eq!(sample_rate, sfx_flick.sample_rate());
-    let mut output = vec![0.0_f32; (video_length * sample_rate as f64).ceil() as usize * 2];
-    {
-        let pos = O - chart.offset.min(0.) as f64;
-        let count = (music.length() as f64 * sample_rate as f64) as usize;
-        let mut it = output[((pos * sample_rate as f64).round() as usize * 2)..].iter_mut();
-        let ratio = 1. / sample_rate as f64;
-        for frame in 0..count {
-            let position = frame as f64 * ratio;
-            let frame = music.sample(position as f32).unwrap_or_default();
-            *it.next().unwrap() += frame.0 * volume_music;
-            *it.next().unwrap() += frame.1 * volume_music;
+    let mixing_output = if bounded { None } else { Some(NamedTempFile::new()?) };
+    if !bounded {
+        let ending = ld!("ending.mp3");
+        let sfx_click = ld!("click.ogg");
+        let sfx_drag = ld!("drag.ogg");
+        let sfx_flick = ld!("flick.ogg");
+        let sample_rate = 44100;
+        assert_eq!(sample_rate, ending.sample_rate());
+        assert_eq!(sample_rate, sfx_click.sample_rate());
+        assert_eq!(sample_rate, sfx_drag.sample_rate());
+        assert_eq!(sample_rate, sfx_flick.sample_rate());
+        let mut output = vec![0.0_f32; (video_length * sample_rate as f64).ceil() as usize * 2];
+        {
+            let pos = O - chart.offset.min(0.) as f64;
+            let count = (music.length() as f64 * sample_rate as f64) as usize;
+            let mut it = output[((pos * sample_rate as f64).round() as usize * 2)..].iter_mut();
+            let ratio = 1. / sample_rate as f64;
+            for frame in 0..count {
+                let position = frame as f64 * ratio;
+                let frame = music.sample(position as f32).unwrap_or_default();
+                *it.next().unwrap() += frame.0 * volume_music;
+                *it.next().unwrap() += frame.1 * volume_music;
+            }
         }
-    }
-    let mut place = |pos: f64, clip: &AudioClip, volume: f32| {
-        let position = (pos * sample_rate as f64).round() as usize * 2;
-        if position >= output.len() {
-            return 0;
+        let mut place = |pos: f64, clip: &AudioClip, volume: f32| {
+            let position = (pos * sample_rate as f64).round() as usize * 2;
+            if position >= output.len() { return 0; }
+            let slice = &mut output[position..];
+            let len = (slice.len() / 2).min(clip.frame_count());
+            let mut it = slice.iter_mut();
+            for frame in clip.frames()[..len].iter() {
+                *it.next().unwrap() += frame.0 * volume;
+                *it.next().unwrap() += frame.1 * volume;
+            }
+            len
+        };
+        for note in chart.lines.iter().flat_map(|it| it.notes.iter()).filter(|it| !it.fake) {
+            place(
+                O + note.time as f64 + offset as f64,
+                match note.kind {
+                    NoteKind::Click | NoteKind::Hold { .. } => &sfx_click,
+                    NoteKind::Drag => &sfx_drag,
+                    NoteKind::Flick => &sfx_flick,
+                },
+                volume_sfx,
+            );
         }
-        let slice = &mut output[position..];
-        let len = (slice.len() / 2).min(clip.frame_count());
-        let mut it = slice.iter_mut();
-        // TODO optimize?
-        for frame in clip.frames()[..len].iter() {
-            let dst = it.next().unwrap();
-            *dst += frame.0 * volume;
-            let dst = it.next().unwrap();
-            *dst += frame.1 * volume;
+        let mut pos = O + length + A;
+        while place(pos, &ending, volume_music) != 0 {
+            pos += ending.frame_count() as f64 / sample_rate as f64;
         }
-        return len;
-    };
-    for note in chart
-        .lines
-        .iter()
-        .flat_map(|it| it.notes.iter())
-        .filter(|it| !it.fake)
-    {
-        place(
-            O + note.time as f64 + offset as f64,
-            match note.kind {
-                NoteKind::Click | NoteKind::Hold { .. } => &sfx_click,
-                NoteKind::Drag => &sfx_drag,
-                NoteKind::Flick => &sfx_flick,
-            },
-            volume_sfx,
-        );
-    }
-    let mut pos = O + length + A;
-    while place(pos, &ending, volume_music) != 0 {
-        pos += ending.frame_count() as f64 / sample_rate as f64;
-    }
-    let mut proc = cmd_hidden(&ffmpeg)
-        .args("-y -f f32le -ar 44100 -ac 2 -i - -c:a mp3 -f mp3".split_whitespace())
-        .arg(mixing_output.path())
-        .stdin(Stdio::piped())
-        .stderr(Stdio::inherit())
-        .spawn()
-        .with_context(|| tl!("run-ffmpeg-failed"))?;
-    let input = proc.stdin.as_mut().unwrap();
-    let mut writer = BufWriter::new(input);
-    // The mixed buffer is already in the exact f32le format FFmpeg expects.
-    // Writing one float per syscall made long songs spend a large amount of
-    // time in the pipe layer. Keep the byte representation unchanged, but
-    // batch it into bounded chunks before writing.
-    const MIX_WRITE_CHUNK_BYTES: usize = 64 * 1024;
-    let mut encoded = Vec::with_capacity(MIX_WRITE_CHUNK_BYTES);
-    for sample in output.into_iter() {
-        encoded.extend_from_slice(&sample.to_le_bytes());
-        if encoded.len() >= MIX_WRITE_CHUNK_BYTES {
-            writer.write_all(&encoded)?;
-            encoded.clear();
+        let mut mix_proc = cmd_hidden(&ffmpeg)
+            .args("-y -f f32le -ar 44100 -ac 2 -i - -c:a mp3 -f mp3".split_whitespace())
+            .arg(mixing_output.as_ref().unwrap().path())
+            .stdin(Stdio::piped())
+            .stderr(Stdio::inherit())
+            .spawn()
+            .with_context(|| tl!("run-ffmpeg-failed"))?;
+        let input = mix_proc.stdin.as_mut().unwrap();
+        let mut writer = BufWriter::new(input);
+        const MIX_WRITE_CHUNK_BYTES: usize = 64 * 1024;
+        let mut encoded = Vec::with_capacity(MIX_WRITE_CHUNK_BYTES);
+        for sample in output.into_iter() {
+            encoded.extend_from_slice(&sample.to_le_bytes());
+            if encoded.len() >= MIX_WRITE_CHUNK_BYTES {
+                writer.write_all(&encoded)?;
+                encoded.clear();
+            }
         }
+        if !encoded.is_empty() { writer.write_all(&encoded)?; }
+        drop(writer);
+        mix_proc.wait()?;
     }
-    if !encoded.is_empty() {
-        writer.write_all(&encoded)?;
-    }
-    drop(writer);
-    proc.wait()?;
 
     let (vw, vh) = params.config.resolution;
     let mst = Rc::new(MSRenderTarget::new((vw, vh), config.sample_count));
@@ -369,55 +359,65 @@ pub async fn main() -> Result<()> {
     let fps = params.config.fps;
     let frame_delta = 1. / fps as f32;
 
-    let codecs = String::from_utf8(
+    let mut proc = if bounded {
         cmd_hidden(&ffmpeg)
-            .arg("-codecs")
-            .output()
+            .args([
+                "-y", "-f", "rawvideo", "-c:v", "rawvideo", "-pix_fmt", "rgba",
+                "-s", &format!("{vw}x{vh}"), "-r", &fps.to_string(), "-i", "-",
+                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-b:v", &params.config.bitrate,
+                "-vf", "vflip", "-an", "-f", "mp4",
+            ])
+            .arg(output_path)
+            .stdin(Stdio::piped())
+            .stderr(Stdio::inherit())
+            .spawn()
             .with_context(|| tl!("run-ffmpeg-failed"))?
-            .stdout,
-    )?;
-    let use_cuda = params.config.hardware_accel && codecs.contains("h264_nvenc");
-    let has_qsv = params.config.hardware_accel && codecs.contains("h264_qsv");
-
-    let mut args = "-y -f rawvideo -c:v rawvideo".to_owned();
-    if use_cuda {
-        args += " -hwaccel_output_format cuda";
-    }
-    write!(&mut args, " -s {vw}x{vh} -r {fps} -pix_fmt rgba -i - -i")?;
-
-    let args2 = format!(
-        "-c:a copy -c:v {} -pix_fmt yuv420p -b:v {} -map 0:v:0 -map 1:a:0 -vf vflip -f mp4",
-        if use_cuda {
-            "h264_nvenc"
-        } else if has_qsv {
-            "h264_qsv"
-        } else if params.config.hardware_accel {
-            bail!(tl!("no-hwacc"));
-        } else {
-            // "libx264 -preset ultrafast"
-            "libx264"
-        },
-        params.config.bitrate,
-    );
-
-    let mut proc = cmd_hidden(&ffmpeg)
-        .args(args.split_whitespace())
-        .arg(mixing_output.path())
-        .args(args2.split_whitespace())
-        .arg(output_path)
-        .stdin(Stdio::piped())
-        .stderr(Stdio::inherit())
-        .spawn()
-        .with_context(|| tl!("run-ffmpeg-failed"))?;
+    } else {
+        let codecs = String::from_utf8(
+            cmd_hidden(&ffmpeg)
+                .arg("-codecs")
+                .output()
+                .with_context(|| tl!("run-ffmpeg-failed"))?
+                .stdout,
+        )?;
+        let use_cuda = params.config.hardware_accel && codecs.contains("h264_nvenc");
+        let has_qsv = params.config.hardware_accel && codecs.contains("h264_qsv");
+        let mut args = "-y -f rawvideo -c:v rawvideo".to_owned();
+        if use_cuda { args += " -hwaccel_output_format cuda"; }
+        write!(&mut args, " -s {vw}x{vh} -r {fps} -pix_fmt rgba -i - -i")?;
+        let args2 = format!(
+            "-c:a copy -c:v {} -pix_fmt yuv420p -b:v {} -map 0:v:0 -map 1:a:0 -vf vflip -f mp4",
+            if use_cuda { "h264_nvenc" } else if has_qsv { "h264_qsv" } else if params.config.hardware_accel { bail!(tl!("no-hw-acc")); } else { "libx264" },
+            params.config.bitrate,
+        );
+        cmd_hidden(&ffmpeg)
+            .args(args.split_whitespace())
+            .arg(mixing_output.as_ref().unwrap().path())
+            .args(args2.split_whitespace())
+            .arg(output_path)
+            .stdin(Stdio::piped())
+            .stderr(Stdio::inherit())
+            .spawn()
+            .with_context(|| tl!("run-ffmpeg-failed"))?
+    };
     let mut input = proc.stdin.take().unwrap();
 
     let byte_size = vw as usize * vh as usize * 4;
 
-    let frames = (video_length / frame_delta as f64).ceil() as u64;
+    let frames = if bounded {
+        (video_length / frame_delta as f64).ceil() as u64 + 1
+    } else {
+        (video_length / frame_delta as f64).ceil() as u64
+    };
+    let output_frames = match plan.mode {
+        PreviewMode::Full => frames,
+        PreviewMode::Frame => 1,
+        PreviewMode::Segment => plan.output_frame_count(fps)?,
+    };
 
     const N: usize = 3;
     let mut pbos: [GLuint; N] = [0; N];
-    unsafe {
+    if !bounded { unsafe {
         use miniquad::gl::*;
         glGenBuffers(N as _, pbos.as_mut_ptr());
         for pbo in pbos {
@@ -430,9 +430,9 @@ pub async fn main() -> Result<()> {
             );
         }
         glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-    }
+    }}
 
-    send(IPCEvent::StartRender(frames));
+    send(IPCEvent::StartRender(output_frames));
 
     for frame in 0..frames {
         *my_time.borrow_mut() = (frame as f32 * frame_delta).max(0.) as f64;
@@ -448,30 +448,47 @@ pub async fn main() -> Result<()> {
         if MSAA.load(Ordering::SeqCst) {
             mst.blit();
         }
-        unsafe {
-            use miniquad::gl::*;
-            let tex = mst.output().texture.raw_miniquad_texture_handle();
-            glBindFramebuffer(GL_READ_FRAMEBUFFER, internal_id(mst.output()));
-
-            glBindBuffer(GL_PIXEL_PACK_BUFFER, pbos[frame as usize % N]);
-            glReadPixels(
-                0,
-                0,
-                tex.width as _,
-                tex.height as _,
-                GL_RGBA,
-                GL_UNSIGNED_BYTE,
-                std::ptr::null_mut(),
-            );
-
-            glBindBuffer(GL_PIXEL_PACK_BUFFER, pbos[(frame + 1) as usize % N]);
-            let src = glMapBuffer(GL_PIXEL_PACK_BUFFER, 0x88B8);
-            if !src.is_null() {
-                input.write_all(&std::slice::from_raw_parts(src as *const u8, byte_size))?;
-                glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+        if !bounded {
+            unsafe {
+                use miniquad::gl::*;
+                let tex = mst.output().texture.raw_miniquad_texture_handle();
+                glBindFramebuffer(GL_READ_FRAMEBUFFER, internal_id(mst.output()));
+                glBindBuffer(GL_PIXEL_PACK_BUFFER, pbos[frame as usize % N]);
+                glReadPixels(0, 0, tex.width as _, tex.height as _, GL_RGBA, GL_UNSIGNED_BYTE, std::ptr::null_mut());
+                glBindBuffer(GL_PIXEL_PACK_BUFFER, pbos[(frame + 1) as usize % N]);
+                let src = glMapBuffer(GL_PIXEL_PACK_BUFFER, 0x88B8);
+                if !src.is_null() {
+                    input.write_all(&std::slice::from_raw_parts(src as *const u8, byte_size))?;
+                    glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+                }
+            }
+            send(IPCEvent::Frame);
+        } else {
+            let video_time = frame as f64 * frame_delta as f64;
+            let emit = match plan.mode {
+                PreviewMode::Frame => {
+                    let target = plan.start_s.unwrap();
+                    (video_time - target).abs() < frame_delta as f64 * 0.5
+                }
+                PreviewMode::Segment => {
+                    let start = plan.start_s.unwrap();
+                    let end = plan.end_s.unwrap();
+                    video_time >= start && video_time < end
+                }
+                PreviewMode::Full => false,
+            };
+            if emit {
+                let mut rgba = vec![0_u8; byte_size];
+                unsafe {
+                    use miniquad::gl::*;
+                    let tex = mst.output().texture.raw_miniquad_texture_handle();
+                    glBindFramebuffer(GL_READ_FRAMEBUFFER, internal_id(mst.output()));
+                    glReadPixels(0, 0, tex.width as _, tex.height as _, GL_RGBA, GL_UNSIGNED_BYTE, rgba.as_mut_ptr() as *mut _);
+                }
+                input.write_all(&rgba)?;
+                send(IPCEvent::Frame);
             }
         }
-        send(IPCEvent::Frame);
     }
     drop(input);
     proc.wait()?;
