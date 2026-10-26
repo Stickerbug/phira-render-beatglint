@@ -27,3 +27,11 @@ The branch is pushed to the private GitHub repository
 evidence and [`docs/render-modes.md`](docs/render-modes.md) for the mode
 contracts. Build provenance is recorded in
 [`provenance/commit-provenance.json`](provenance/commit-provenance.json).
+
+After a build, the recorded smoke contract can be checked without rendering:
+
+```text
+python tools/verify_headless_smoke.py \
+  fixtures/manifests/headless-smoke-20261027.json \
+  --renderer-binary upstream/headless-render/target/release/phira-render-headless
+```
