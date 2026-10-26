@@ -1,7 +1,7 @@
 {
   "format": "beatglint_headless_renderer_smoke_v1",
   "renderer_repo": "Stickerbug/phira-render-beatglint",
-  "renderer_commit": "f7c554ef14a735113cf4a0f1da722c4ee175e50f",
+  "renderer_commit": "858d437e18a0bad68b5318f3e614a4146fca33ad",
   "profile": "headless",
   "video_decode_enabled": false,
   "audio_output": "none",
