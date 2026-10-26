@@ -9,7 +9,8 @@
 - The macroquad snapshot is still partial; external git dependencies and the
   exact renderer linkage need to be restored or proven.
 - Current state: **not yet build-verified**. The environment does not contain
-  `cargo` or `rustc`, so no build has been attempted.
+  the native GUI development libraries required by the upstream Tauri build.
+  See [`docs/build-recovery.md`](docs/build-recovery.md).
 - No renderer binary was rebuilt and no AppImage was replaced.
 - No chart, audio, skin, model, training, separation or transcription data is
   included here.
