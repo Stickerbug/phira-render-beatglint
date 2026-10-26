@@ -1,0 +1,22 @@
+[package]
+name = "phira-render-headless"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.60"
+publish = false
+
+[dependencies]
+anyhow = { version = "1.0.70", features = ["backtrace"] }
+macroquad = { git = "https://github.com/Mivik/prpr-macroquad", default-features = false }
+prpr = { path = "../phira/prpr" }
+sasa = { git = "https://github.com/Mivik/sasa" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tempfile = "3.8.0"
+tokio = { version = "1.23", features = ["process", "rt-multi-thread", "fs"] }
+
+[profile.release]
+opt-level = 2
+
+[profile.dev.package."*"]
+opt-level = 2

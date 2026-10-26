@@ -11,3 +11,4 @@
 *.jpg
 *.tar.gz
 .DS_Store
+/upstream/headless-render/target/
