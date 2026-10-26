@@ -1,0 +1,14 @@
+{
+  "repository": "TeamFlos/phira",
+  "prpr_commit": "0020dc45914a07637ea74a11c8a030f3fa3f9d43",
+  "renderer_source_archive_sha256": "c14c0ae74a167f90b9f91ca21f3a6091a905880d091e216311f4306593eff7d4",
+  "renderer_source_archive": "BeatGlint/resources/phira-render/phira-render-source.zip",
+  "snapshot_kind": "diagnostic_source_recovery_checkpoint",
+  "binary_linkage_verified": false,
+  "build_verified": false,
+  "notes": [
+    "The snapshot contains 43 prpr/src files, a partial macroquad snapshot and renderer-preview/render.rs.",
+    "The complete Phira workspace, dependency tree and Cargo.lock are not yet restored.",
+    "Do not use this checkpoint to replace the existing AppImage renderer."
+  ]
+}

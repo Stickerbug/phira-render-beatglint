@@ -1,0 +1,9 @@
+{
+  "repository": "TeamFlos/phira",
+  "commit": "0020dc45914a07637ea74a11c8a030f3fa3f9d43",
+  "commit_url": "https://github.com/TeamFlos/phira/commit/0020dc45914a07637ea74a11c8a030f3fa3f9d43",
+  "pgr_blob_sha": "313f39dcbbfa11ec8c9557e2d2f372f33a39671d",
+  "pgr_url": "https://github.com/TeamFlos/phira/blob/0020dc45914a07637ea74a11c8a030f3fa3f9d43/prpr/src/parse/pgr.rs",
+  "source": "GitHub connector fetch_commit/fetch_file; no binary build performed",
+  "pin_caveat": "Cargo.toml restored archive names TeamFlos/phira render-lib; restored Cargo.lock prpr stanza has no git source. Historical project documents pin 0020dc4; commit SHA resolved from GitHub. Current binary linkage not independently rebuilt."
+}

@@ -1,0 +1,11 @@
+{
+  "archive": "/workspace/BeatGlint/resources/phira-render/phira-render-source.zip",
+  "archive_sha256": "c14c0ae74a167f90b9f91ca21f3a6091a905880d091e216311f4306593eff7d4",
+  "member": "phira-render/src-tauri/src/render.rs",
+  "file_sha256": "256578386ecb85b8638c8e34f7c395c0ddf9cf70fd00b7744a29df090620a7d1",
+  "bytes": 13592,
+  "method": "read existing restored ZIP member; no renderer binary modification or build",
+  "limitations": [
+    "Restored source archive rather than a fresh binary build/linkage attestation."
+  ]
+}

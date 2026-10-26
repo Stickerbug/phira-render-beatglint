@@ -1,0 +1,13 @@
+/target/
+/dist/
+/build/
+*.mp4
+*.mov
+*.wav
+*.ogg
+*.flac
+*.pez
+*.png
+*.jpg
+*.tar.gz
+.DS_Store
