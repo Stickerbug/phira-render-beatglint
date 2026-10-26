@@ -1,7 +1,7 @@
 {
   "format": "beatglint_headless_renderer_smoke_v1",
   "renderer_repo": "Stickerbug/phira-render-beatglint",
-  "renderer_commit": "9796296203f19c5187ca1e50aaeec25a3d49de82",
+  "renderer_commit": "f254633daa191e2ad652067a527b4e5803769eb8",
   "profile": "headless",
   "video_decode_enabled": false,
   "audio_output": "none",
@@ -93,7 +93,7 @@
     "The first bounded implementation replays from t=0; checkpoint fast-forward is not implemented.",
     "The frame, segment and music-only outputs were decoded successfully with ffprobe; no BeatGlint main pipeline was changed."
   ],
-  "renderer_binary_sha256": "85db1bce5711d2a9bb5c895be31a8aaf5dd90848e536b99171ad92641a3ff28b",
+  "renderer_binary_sha256": "fdd36979aacea5ffa441ce0325525b2eec68300d113eaa2024f2bb747e60ca61",
   "full_audio_parity": {
     "reference_appimage_output_sha256": "756d7f649b9b286d80d29283e3eb33b4d217e2e87bedfc7ffa019cb4fc6de561",
     "diagnostic_full_output_sha256": "2dcbc1493878443dc8ebf35f9149bcb1e55e81cc16702d6c4d3cd3528d9297d9",
