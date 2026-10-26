@@ -99,6 +99,15 @@ frame range, audio mode, output stream metadata and output SHA. The current
 video-only smoke cases remain unchanged and are the regression guard for the
 default path.
 
+The first implementation and smoke are recorded in
+`fixtures/manifests/headless-smoke-20261027.json` at renderer commit
+`82515db`. The 320×180, 10 fps Credits window `[3.5, 4.0)` emitted five video
+frames and a 0.5 s AAC stream at 44.1 kHz; `ffprobe` reports both streams and
+the container starting at zero. The AAC encoder still has its normal priming
+packet in the packet-level view, so downstream waveform comparisons must use
+decoded sample time rather than treating the first packet boundary as a
+musical cue.
+
 ## Performance implications
 
 The extra work for a short music-only segment is linear in the segment sample
