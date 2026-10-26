@@ -9,7 +9,10 @@ use macroquad::prelude::{
 };
 use miniquad::{EventHandler, MouseButton};
 use once_cell::sync::Lazy;
+#[cfg(not(feature = "headless"))]
 use sasa::{PlaySfxParams, Sfx};
+#[cfg(feature = "headless")]
+use crate::audio::{PlaySfxParams, Sfx};
 use serde::Serialize;
 use std::{cell::RefCell, collections::HashMap, num::FpCategory};
 use tracing::debug;

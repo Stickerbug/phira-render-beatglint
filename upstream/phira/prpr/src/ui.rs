@@ -37,7 +37,10 @@ use lyon::{
 };
 use macroquad::prelude::*;
 use miniquad::PassAction;
+#[cfg(not(feature = "headless"))]
 use sasa::{AudioManager, PlaySfxParams, Sfx};
+#[cfg(feature = "headless")]
+use crate::audio::{AudioManager, PlaySfxParams, Sfx};
 use std::{borrow::Cow, cell::RefCell, collections::HashMap, ops::Range};
 
 #[derive(Default, Clone, Copy)]
@@ -1154,6 +1157,12 @@ impl<'a> From<(Option<f32>, &'a mut f32)> for LoadingParams<'a> {
 }
 
 fn build_audio() -> AudioManager {
+    #[cfg(feature = "headless")]
+    {
+        return AudioManager::new().unwrap();
+    }
+    #[cfg(not(feature = "headless"))]
+    {
     #[cfg(target_os = "android")]
     {
         use sasa::backend::oboe::*;
@@ -1168,6 +1177,7 @@ fn build_audio() -> AudioManager {
     {
         use sasa::backend::cpal::*;
         AudioManager::new(CpalBackend::new(CpalSettings::default())).unwrap()
+    }
     }
 }
 

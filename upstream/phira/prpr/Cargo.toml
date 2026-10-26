@@ -7,9 +7,12 @@ license = "GPL-3.0-only"
 [lib]
 
 [features]
-default = ["log"]
+default = ["log", "file-dialog", "live-audio"]
 closed = []
 log = ["dep:tracing-subscriber", "dep:colored"]
+file-dialog = ["dep:rfd"]
+headless = []
+live-audio = ["dep:sasa"]
 
 [dependencies]
 anyhow = "1.0"
@@ -27,8 +30,8 @@ image = "0.24"
 intl-memoizer = "0.5.1"
 lru = "0.9.0"
 lyon = "1.0.1"
-macroquad = { git = "https://github.com/Mivik/prpr-macroquad", default-features = false }
-miniquad = { git = "https://github.com/Mivik/prpr-miniquad" }
+macroquad = { git = "https://github.com/Mivik/prpr-macroquad", rev = "19119d6e3ec231502f6d64ff077114ffe1fcb04a", default-features = false }
+miniquad = { git = "https://github.com/Mivik/prpr-miniquad.git" }
 nalgebra = "*"
 once_cell = "1.16.0"
 ordered-float = "3.4.0"
@@ -64,7 +67,7 @@ colored = { version = "2.0.0", optional = true }
 prpr-avc = { path = "../prpr-avc" }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
-rfd = "0.10"
+rfd = { version = "0.10", optional = true }
 
 [target.'cfg(target_os = "ios")'.dependencies]
 objc = "*"
@@ -74,10 +77,10 @@ block = "0.1.6"
 
 [target.'cfg(target_os = "android")'.dependencies]
 ndk-context = "0.1"
-sasa = { git = "https://github.com/Mivik/sasa", default-features = false, features = ["oboe"] }
+sasa = { git = "https://github.com/Mivik/sasa", default-features = false, features = ["oboe"], optional = true }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
-sasa = { git = "https://github.com/Mivik/sasa" }
+sasa = { git = "https://github.com/Mivik/sasa", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio = { version = "1.23", features = ["rt-multi-thread", "fs"] }

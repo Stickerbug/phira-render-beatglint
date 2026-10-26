@@ -11,6 +11,9 @@
 - Current state: **not yet build-verified**. The environment does not contain
   the native GUI development libraries required by the upstream Tauri build.
   See [`docs/build-recovery.md`](docs/build-recovery.md).
+- The Tauri-free `upstream/headless-render` dependency graph now passes
+  `cargo check` with warnings. Runtime GL initialization, a smoke render and
+  frame/segment output are still pending.
 - No renderer binary was rebuilt and no AppImage was replaced.
 - No chart, audio, skin, model, training, separation or transcription data is
   included here.

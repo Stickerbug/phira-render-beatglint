@@ -16,7 +16,10 @@ use crate::{
 };
 use anyhow::Result;
 use macroquad::prelude::*;
+#[cfg(not(feature = "headless"))]
 use sasa::{AudioClip, AudioManager, Music, MusicParams};
+#[cfg(feature = "headless")]
+use crate::audio::{AudioClip, AudioManager, Music, MusicParams};
 use serde::Deserialize;
 use std::{cell::RefCell, ops::DerefMut};
 

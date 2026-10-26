@@ -13,7 +13,10 @@ use macroquad::prelude::*;
 use miniquad::{BlendFactor, BlendState, BlendValue, CompareFunc, Equation, PrimitiveType, StencilFaceState, StencilOp, StencilState};
 use once_cell::sync::Lazy;
 use ordered_float::{Float, NotNan};
+#[cfg(not(feature = "headless"))]
 use sasa::AudioManager;
+#[cfg(feature = "headless")]
+use crate::audio::AudioManager;
 use serde::Deserialize;
 use std::{
     future::Future,
@@ -398,6 +401,13 @@ pub fn screen_aspect() -> f32 {
 }
 
 pub fn create_audio_manger(config: &Config) -> Result<AudioManager> {
+    #[cfg(feature = "headless")]
+    {
+        let _ = config;
+        return AudioManager::new();
+    }
+    #[cfg(not(feature = "headless"))]
+    {
     #[cfg(target_os = "android")]
     {
         use sasa::backend::oboe::*;
@@ -413,6 +423,7 @@ pub fn create_audio_manger(config: &Config) -> Result<AudioManager> {
         AudioManager::new(CpalBackend::new(CpalSettings {
             buffer_size: config.audio_buffer_size,
         }))
+    }
     }
 }
 

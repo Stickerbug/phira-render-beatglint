@@ -5,11 +5,14 @@ edition = "2021"
 rust-version = "1.60"
 publish = false
 
+[features]
+default = ["headless-render"]
+headless-render = []
+
 [dependencies]
 anyhow = { version = "1.0.70", features = ["backtrace"] }
-macroquad = { git = "https://github.com/Mivik/prpr-macroquad", default-features = false }
-prpr = { path = "../phira/prpr" }
-sasa = { git = "https://github.com/Mivik/sasa" }
+macroquad = { git = "https://github.com/Mivik/prpr-macroquad", rev = "19119d6e3ec231502f6d64ff077114ffe1fcb04a", default-features = false }
+prpr = { path = "../phira/prpr", default-features = false, features = ["headless"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tempfile = "3.8.0"

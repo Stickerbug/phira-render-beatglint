@@ -25,7 +25,10 @@ use anyhow::{bail, Context, Result};
 use concat_string::concat_string;
 use lyon::path::Path;
 use macroquad::{prelude::*, window::InternalGlContext};
+#[cfg(not(feature = "headless"))]
 use sasa::{Music, MusicParams};
+#[cfg(feature = "headless")]
+use crate::audio::{Music, MusicParams};
 use serde::{Deserialize, Serialize};
 use std::{
     any::Any,

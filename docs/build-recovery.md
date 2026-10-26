@@ -27,3 +27,15 @@ Tauri UI, file-dialog and live audio dependencies from the build graph while
 keeping the existing full-faithful AppImage as the visual reference. Any such
 profile must first pass the unmodified smoke parity check before adding frame
 or segment optimizations.
+
+That first dependency-isolation step is now present under
+`upstream/headless-render`: it disables `rfd` and live `sasa/cpal` through a
+`prpr` headless feature, supplies deterministic no-device audio types, pins the
+old macroquad/miniquad commits and compiles successfully with `cargo check`.
+It currently only proves source compilation; it does not yet render a frame,
+and bounded modes remain fail-closed until warmup and output are implemented.
+
+The headless branch also carries a small compatibility adjustment in the
+renderer entry for the pinned `prpr 0.4.0` API (`BasicPlayer`, `TextPainter`
+and `LoadingScene` signatures). This is a local source compatibility layer,
+not an assertion that the archived AppImage was linked from that exact API.

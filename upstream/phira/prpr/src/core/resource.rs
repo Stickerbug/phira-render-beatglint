@@ -9,7 +9,10 @@ use crate::{
 use anyhow::{bail, Context, Result};
 use macroquad::prelude::*;
 use miniquad::{gl::GLuint, Texture, TextureWrap};
+#[cfg(not(feature = "headless"))]
 use sasa::{AudioClip, AudioManager, Sfx};
+#[cfg(feature = "headless")]
+use crate::audio::{AudioClip, AudioManager, Sfx};
 use serde::Deserialize;
 use std::{cell::RefCell, collections::BTreeMap, ops::DerefMut, path::Path, sync::atomic::AtomicU32};
 
