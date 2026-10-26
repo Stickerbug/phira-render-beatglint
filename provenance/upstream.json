@@ -7,8 +7,8 @@
   "binary_linkage_verified": false,
   "build_verified": false,
   "notes": [
-    "The snapshot contains 43 prpr/src files, a partial macroquad snapshot and renderer-preview/render.rs.",
-    "The complete Phira workspace, dependency tree and Cargo.lock are not yet restored.",
+    "The pinned Phira source tree, prpr-avc, locales, shaders, root Cargo metadata and renderer source are restored.",
+    "The macroquad and other external git dependencies still require exact source/linkage verification.",
     "Do not use this checkpoint to replace the existing AppImage renderer."
   ]
 }

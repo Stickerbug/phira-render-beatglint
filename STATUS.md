@@ -2,13 +2,14 @@
 
 ## 2026-10-26 source recovery checkpoint
 
-- `prpr` source snapshot: 43 Rust source files from
+- `prpr` source snapshot: the pinned source tree from
   `TeamFlos/phira@0020dc45914a07637ea74a11c8a030f3fa3f9d43`.
-- Renderer entry snapshot: the restored `renderer-preview/render.rs`.
-- Macroquad snapshot: only the diagnostic `Cargo.toml` and `src/lib.rs`.
-- Current state: **not buildable**. Root workspace metadata, complete
-  dependencies, Cargo.lock and license files are not present in this
-  checkpoint.
+- `prpr-avc`, locales, shader files, root `Cargo.toml`, root `Cargo.lock` and
+  the upstream renderer source are now present.
+- The macroquad snapshot is still partial; external git dependencies and the
+  exact renderer linkage need to be restored or proven.
+- Current state: **not yet build-verified**. The environment does not contain
+  `cargo` or `rustc`, so no build has been attempted.
 - No renderer binary was rebuilt and no AppImage was replaced.
 - No chart, audio, skin, model, training, separation or transcription data is
   included here.
