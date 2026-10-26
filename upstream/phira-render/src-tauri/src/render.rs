@@ -499,6 +499,7 @@ pub async fn main() -> Result<()> {
     let mut input = proc.stdin.take().unwrap();
 
     let byte_size = vw as usize * vh as usize * 4;
+    let mut bounded_rgba = bounded.then(|| vec![0_u8; byte_size]);
 
     let frames = if bounded {
         (video_length / frame_delta as f64).ceil() as u64 + 1
@@ -583,14 +584,14 @@ pub async fn main() -> Result<()> {
                 PreviewMode::Full => false,
             };
             if emit {
-                let mut rgba = vec![0_u8; byte_size];
+                let rgba = bounded_rgba.as_mut().expect("bounded readback buffer");
                 unsafe {
                     use miniquad::gl::*;
                     let tex = mst.output().texture.raw_miniquad_texture_handle();
                     glBindFramebuffer(GL_READ_FRAMEBUFFER, internal_id(mst.output()));
                     glReadPixels(0, 0, tex.width as _, tex.height as _, GL_RGBA, GL_UNSIGNED_BYTE, rgba.as_mut_ptr() as *mut _);
                 }
-                input.write_all(&rgba)?;
+                input.write_all(rgba)?;
                 send(IPCEvent::Frame);
             }
         }
