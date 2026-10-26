@@ -1,0 +1,16 @@
+[workspace]
+members = [
+	"prpr",
+	"prpr-avc",
+	"phira",
+	"phira-main",
+	"phira-monitor",
+]
+resolver = "2"
+
+[profile.release]
+opt-level = 2
+strip = true
+
+[profile.dev.package."*"]
+opt-level = 2
