@@ -13,7 +13,8 @@
   See [`docs/build-recovery.md`](docs/build-recovery.md).
 - The Tauri-free `upstream/headless-render` dependency graph now passes
   `cargo check` with warnings. Runtime GL initialization, a smoke render and
-  frame/segment output are still pending.
+  frame/segment output have now passed the bounded Credits smoke; full-faithful
+  parity, audio muxing and state checkpointing remain pending.
 - No renderer binary was rebuilt and no AppImage was replaced.
 - No chart, audio, skin, model, training, separation or transcription data is
   included here.

@@ -32,8 +32,9 @@ That first dependency-isolation step is now present under
 `upstream/headless-render`: it disables `rfd` and live `sasa/cpal` through a
 `prpr` headless feature, supplies deterministic no-device audio types, pins the
 old macroquad/miniquad commits and compiles successfully with `cargo check`.
-It currently only proves source compilation; it does not yet render a frame,
-and bounded modes remain fail-closed until warmup and output are implemented.
+It now compiles and produces bounded diagnostic MP4 output. The first bounded
+implementation replays from t=0, omits audio/video backgrounds, and keeps
+non-zero warmup fail-closed; it is not full-faithful evidence.
 
 The headless branch also carries a small compatibility adjustment in the
 renderer entry for the pinned `prpr 0.4.0` API (`BasicPlayer`, `TextPainter`
