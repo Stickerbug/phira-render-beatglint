@@ -356,7 +356,10 @@ pub async fn main() -> Result<()> {
             }
         }
         drop(writer);
-        mix_proc.wait()?;
+        let status = mix_proc.wait()?;
+        if !status.success() {
+            bail!("FFmpeg audio mix exited with {status}")
+        }
     }
 
     let (vw, vh) = params.config.resolution;
@@ -612,7 +615,9 @@ pub async fn main() -> Result<()> {
             glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
         }
     }
-    proc.wait()?;
+    if !proc.wait()?.success() {
+        bail!("FFmpeg video encode exited unsuccessfully")
+    }
 
     send(IPCEvent::Done(render_start_time.elapsed().as_secs_f64()));
     Ok(())

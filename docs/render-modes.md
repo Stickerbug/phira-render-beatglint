@@ -1,13 +1,13 @@
 # Render modes
 
-The renderer exposes four conceptual modes. Only the first two currently have
-runtime evidence; names are deliberately explicit so a fast diagnostic frame
-cannot be mistaken for a faithful gameplay render.
+The renderer exposes four conceptual modes. The first three have bounded or
+golden runtime evidence; names are deliberately explicit so a fast diagnostic
+frame cannot be mistaken for a faithful gameplay render.
 
 | Mode | Purpose | Current evidence |
 |---|---|---|
 | `full-faithful` | Existing full-song Phira replay | Golden reference (AppImage) |
-| `frame-stateless` | One PNG or one-frame MP4 at a selected time | Implemented as deterministic replay from t=0; no checkpoint |
+| `frame-replay` | One PNG or one-frame MP4 at a selected time | Implemented as deterministic replay from t=0; no checkpoint |
 | `segment-replay` | Bounded no-audio MP4 on the video frame grid | Implemented; replay from t=0, video backgrounds omitted |
 | `resident-worker` | Multiple windows in one cleaned process | Design target; not implemented |
 
