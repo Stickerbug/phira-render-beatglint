@@ -5,7 +5,7 @@ The repository will expose four explicit modes:
 | Mode | Purpose | Evidence status |
 |---|---|---|
 | `full-faithful` | Existing full-song Phira replay | Golden reference |
-| `frame-stateless` | Fast diagnostic PNG at selected times | Not a full-state replay |
+| `frame-stateless` | Fast diagnostic PNG/one-frame output at selected times | Not a full-state replay |
 | `segment-warmed` | Bounded clip after fixed-step warmup | Candidate native evidence after parity |
 | `resident-worker` | Multiple windows in one cleaned process | Allowed only after state-isolation tests |
 
