@@ -28,6 +28,8 @@ use std::{
 use std::{ffi::OsStr, fmt::Write as _};
 use tempfile::NamedTempFile;
 
+use crate::render_plan::{PreviewMode, RenderPlan};
+
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RenderConfig {
@@ -53,6 +55,17 @@ pub struct RenderConfig {
     speed: f32,
     volume_music: f32,
     volume_sfx: f32,
+
+    /// The upstream loop currently implements only `full`. Bounded values are
+    /// parsed and rejected until stateful warmup/output is implemented.
+    #[serde(default)]
+    render_mode: PreviewMode,
+    #[serde(default)]
+    start_s: Option<f64>,
+    #[serde(default)]
+    end_s: Option<f64>,
+    #[serde(default)]
+    warmup_s: f64,
 }
 
 impl RenderConfig {
@@ -161,6 +174,16 @@ pub async fn main() -> Result<()> {
     let mut line = String::new();
     stdin.read_line(&mut line)?;
     let params: RenderParams = serde_json::from_str(line.trim())?;
+    let plan = RenderPlan {
+        mode: params.config.render_mode,
+        start_s: params.config.start_s,
+        end_s: params.config.end_s,
+        warmup_s: params.config.warmup_s,
+    }
+    .validate()?;
+    if plan.mode != PreviewMode::Full {
+        bail!("bounded render mode is protocol-only until native warmup/output is implemented")
+    }
     let path = params.path;
 
     line.clear();
@@ -277,8 +300,21 @@ pub async fn main() -> Result<()> {
         .with_context(|| tl!("run-ffmpeg-failed"))?;
     let input = proc.stdin.as_mut().unwrap();
     let mut writer = BufWriter::new(input);
+    // The mixed buffer is already in the exact f32le format FFmpeg expects.
+    // Writing one float per syscall made long songs spend a large amount of
+    // time in the pipe layer. Keep the byte representation unchanged, but
+    // batch it into bounded chunks before writing.
+    const MIX_WRITE_CHUNK_BYTES: usize = 64 * 1024;
+    let mut encoded = Vec::with_capacity(MIX_WRITE_CHUNK_BYTES);
     for sample in output.into_iter() {
-        writer.write_all(&sample.to_le_bytes())?;
+        encoded.extend_from_slice(&sample.to_le_bytes());
+        if encoded.len() >= MIX_WRITE_CHUNK_BYTES {
+            writer.write_all(&encoded)?;
+            encoded.clear();
+        }
+    }
+    if !encoded.is_empty() {
+        writer.write_all(&encoded)?;
     }
     drop(writer);
     proc.wait()?;
@@ -294,7 +330,17 @@ pub async fn main() -> Result<()> {
     let player = build_player(&params.config).await?;
     let mut main = Main::new(
         Box::new(
-            LoadingScene::new(GameMode::Normal, info, config, fs, Some(player), None, None, None).await?,
+            LoadingScene::new(
+                GameMode::Normal,
+                info,
+                config,
+                fs,
+                Some(player),
+                None,
+                None,
+                None,
+            )
+            .await?,
         ),
         tm,
         {

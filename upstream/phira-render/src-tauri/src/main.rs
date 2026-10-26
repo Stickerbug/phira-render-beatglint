@@ -7,6 +7,7 @@ mod common;
 mod ipc;
 mod preview;
 mod render;
+mod render_plan;
 mod task;
 
 use anyhow::{bail, Context, Result};
@@ -460,7 +461,9 @@ fn unset_rpe_dir() -> Result<(), InvokeError> {
 #[tauri::command]
 fn get_rpe_charts() -> Result<Option<Vec<RPEChartInfo>>, InvokeError> {
     (|| {
-        let Some(dir) = rpe_dir()? else { return Ok(None) };
+        let Some(dir) = rpe_dir()? else {
+            return Ok(None);
+        };
         let mut results = Vec::new();
         let mut name = None;
         let mut id = None;
@@ -497,7 +500,9 @@ fn get_rpe_charts() -> Result<Option<Vec<RPEChartInfo>>, InvokeError> {
                 commit!();
                 continue;
             }
-            let Some((key, value)) = line.split_once(':') else { continue };
+            let Some((key, value)) = line.split_once(':') else {
+                continue;
+            };
             *(match key {
                 "Name" => &mut name,
                 "Path" => &mut id,
