@@ -1,9 +1,8 @@
 //! Explicit render-window protocol shared by full and bounded render modes.
 //!
-//! The current renderer still executes only the `Full` plan. Bounded modes
-//! are rejected until state warmup and output paths are implemented; this
-//! prevents a caller from believing it received a segment while the old
-//! renderer silently produced a full-song video.
+//! Bounded plans use the renderer's video-time grid. They remain explicitly
+//! diagnostic: the headless profile omits audio/video backgrounds and full
+//! state checkpointing, while the full plan remains the reference path.
 
 use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
@@ -78,9 +77,25 @@ impl RenderPlan {
             PreviewMode::Full => 0,
             PreviewMode::Frame => 1,
             PreviewMode::Segment => {
-                ((self.end_s.unwrap() - self.start_s.unwrap()) * fps as f64).ceil() as u64
+                let (start, end) = self.segment_frame_range(fps)?;
+                end - start
             }
         })
+    }
+
+    /// Return the half-open frame-index range that intersects the requested
+    /// video-time window. This keeps the manifest count identical to the
+    /// frames actually emitted by the render loop for off-grid boundaries.
+    pub fn segment_frame_range(self, fps: u32) -> Result<(u64, u64)> {
+        if fps == 0 {
+            bail!("render fps must be positive")
+        }
+        let start = (self.start_s.ok_or_else(|| anyhow::anyhow!("segment start_s is missing"))? * fps as f64).ceil() as u64;
+        let end = (self.end_s.ok_or_else(|| anyhow::anyhow!("segment end_s is missing"))? * fps as f64).ceil() as u64;
+        if end <= start {
+            bail!("segment window contains no frame on the requested fps grid")
+        }
+        Ok((start, end))
     }
 
     pub fn warmup_start_s(self) -> Option<f64> {
@@ -124,7 +139,21 @@ mod tests {
         .validate()
         .unwrap();
         assert_eq!(plan.output_frame_count(30).unwrap(), 31);
+        assert_eq!(plan.segment_frame_range(30).unwrap(), (30, 61));
         assert_eq!(plan.warmup_start_s(), Some(0.5));
+    }
+
+    #[test]
+    fn off_grid_segment_uses_emitted_frame_range() {
+        let plan = RenderPlan {
+            mode: PreviewMode::Segment,
+            start_s: Some(0.01),
+            end_s: Some(0.02),
+            warmup_s: 0.0,
+        }
+        .validate()
+        .unwrap();
+        assert!(plan.segment_frame_range(30).is_err());
     }
 
     #[test]

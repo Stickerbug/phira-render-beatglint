@@ -465,16 +465,14 @@ pub async fn main() -> Result<()> {
             }
             send(IPCEvent::Frame);
         } else {
-            let video_time = frame as f64 * frame_delta as f64;
             let emit = match plan.mode {
                 PreviewMode::Frame => {
-                    let target = plan.start_s.unwrap();
-                    (video_time - target).abs() < frame_delta as f64 * 0.5
+                    let target_frame = (plan.start_s.unwrap() * fps as f64).round() as u64;
+                    frame == target_frame
                 }
                 PreviewMode::Segment => {
-                    let start = plan.start_s.unwrap();
-                    let end = plan.end_s.unwrap();
-                    video_time >= start && video_time < end
+                    let (start_frame, end_frame) = plan.segment_frame_range(fps)?;
+                    frame >= start_frame && frame < end_frame
                 }
                 PreviewMode::Full => false,
             };
