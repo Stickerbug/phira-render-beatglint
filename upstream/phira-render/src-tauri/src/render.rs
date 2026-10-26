@@ -361,13 +361,22 @@ pub async fn main() -> Result<()> {
     let frame_delta = 1. / fps as f32;
 
     let mut proc = if bounded {
-        cmd_hidden(&ffmpeg)
-            .args([
-                "-y", "-f", "rawvideo", "-c:v", "rawvideo", "-pix_fmt", "rgba",
-                "-s", &format!("{vw}x{vh}"), "-r", &fps.to_string(), "-i", "-",
+        let frame_png = plan.mode == PreviewMode::Frame
+            && output_path.extension().and_then(|it| it.to_str()).is_some_and(|it| it.eq_ignore_ascii_case("png"));
+        let mut command = cmd_hidden(&ffmpeg);
+        command.args([
+            "-y", "-f", "rawvideo", "-c:v", "rawvideo", "-pix_fmt", "rgba",
+            "-s", &format!("{vw}x{vh}"), "-r", &fps.to_string(), "-i", "-",
+        ]);
+        if frame_png {
+            command.args(["-frames:v", "1", "-vf", "vflip", "-f", "image2"]);
+        } else {
+            command.args([
                 "-c:v", "libx264", "-pix_fmt", "yuv420p", "-b:v", &params.config.bitrate,
                 "-vf", "vflip", "-an", "-f", "mp4",
-            ])
+            ]);
+        }
+        command
             .arg(output_path)
             .stdin(Stdio::piped())
             .stderr(Stdio::inherit())
