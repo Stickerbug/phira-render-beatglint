@@ -23,6 +23,13 @@
       "output_video_sha256": "deafa0ef036acc7cd170bef3d2e12950eca87ada82502f09f211967d7fabdf7f"
     },
     {
+      "mode": "frame",
+      "start_s": 7.0,
+      "output_frames": 1,
+      "output_duration_s": 0.1,
+      "output_video_sha256": "f43e370dad5afce256fba5ba11945f37b82f535546d0878e04732b1553e26b86"
+    },
+    {
       "mode": "segment",
       "start_s": 3.5,
       "end_s": 4.0,
