@@ -10,8 +10,12 @@ profile.
 
 The isolated Rust 1.99.1 toolchain lives outside the project. The headless
 profile removes Tauri UI, file dialogs, live CPAL/ALSA audio and `prpr-avc`
-video decoding while retaining chart timing and geometry. It passes
-`cargo check`, five unit tests and a release build. A real Xorg smoke produced
+video decoding while retaining chart timing and geometry. The pinned Phira
+workspace lists GUI/application crates whose source is not part of this
+snapshot; `upstream/phira/Cargo.toml` excludes those absent members while
+retaining `prpr` and `prpr-avc`, so Cargo metadata can resolve the headless
+crate without implying that the application sources were recovered. It passes
+`cargo check`, six render-plan tests and a release build. A real Xorg smoke produced
 PNG, one-frame MP4 and bounded segment outputs; the output manifest records
 input and output hashes.
 

@@ -6,6 +6,11 @@ members = [
 	"phira-main",
 	"phira-monitor",
 ]
+# The pinned source snapshot intentionally vendors only the renderer libraries;
+# the GUI/application crates are not present in this repository. Excluding the
+# absent members keeps Cargo metadata usable for the Tauri-free headless crate
+# without pretending those application sources were recovered.
+exclude = ["phira", "phira-main", "phira-monitor"]
 resolver = "2"
 
 [profile.release]

@@ -7,7 +7,7 @@
 - The pinned Phira source is `TeamFlos/phira@0020dc45914a07637ea74a11c8a030f3fa3f9d43`.
   The restored source manifest and archive provenance are recorded under
   `upstream/` and `provenance/`.
-- The Tauri-free `upstream/headless-render` profile passes `cargo check`, five
+- The Tauri-free `upstream/headless-render` profile passes `cargo check`, six
   render-plan unit tests, and a release build with the isolated Rust 1.99.1
   toolchain. No BeatGlint Python environment was changed.
 - A real Xorg smoke used the private Credits prefix package

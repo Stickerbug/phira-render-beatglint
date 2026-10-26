@@ -141,7 +141,7 @@ impl RenderPlan {
 
 #[cfg(test)]
 mod tests {
-    use super::{PreviewMode, RenderPlan};
+    use super::{PreviewMode, RenderPlan, StateMode};
 
     #[test]
     fn default_is_full() {
