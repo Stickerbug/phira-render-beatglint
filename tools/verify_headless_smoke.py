@@ -54,7 +54,9 @@ def verify_case(case: dict, fps: int) -> None:
         video = streams.get("video") or {}
         require(audio.get("codec") == "aac", "music-only audio must be AAC")
         require(audio.get("sample_rate") == 44100, "music-only audio must be 44.1 kHz")
-        require(math.isclose(float(audio.get("duration_s")), float(duration), abs_tol=1 / 44100),
+        audio_duration = audio.get("duration_s")
+        require(isinstance(audio_duration, (int, float)), "music-only audio duration is missing")
+        require(math.isclose(float(audio_duration), float(duration), abs_tol=1 / 44100),
                 "music-only audio duration is off the segment duration")
         require(video.get("frames") == frames, "audio case video frame count mismatch")
 
