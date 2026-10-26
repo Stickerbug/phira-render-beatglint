@@ -31,7 +31,7 @@ use std::{
 use std::{ffi::OsStr, fmt::Write as _};
 use tempfile::NamedTempFile;
 
-use crate::render_plan::{PreviewMode, RenderPlan};
+use crate::render_plan::{PreviewMode, RenderPlan, StateMode};
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -64,6 +64,12 @@ pub struct RenderConfig {
     /// metadata at the caller boundary.
     #[serde(default)]
     render_mode: PreviewMode,
+    /// Scene-state strategy for bounded output. Replay is currently the only
+    /// executable strategy; stateless direct seeking fails closed in
+    /// `RenderPlan::validate` until all history-dependent systems have a
+    /// defined seek contract.
+    #[serde(default)]
+    state_mode: StateMode,
     #[serde(default)]
     start_s: Option<f64>,
     #[serde(default)]
@@ -180,6 +186,7 @@ pub async fn main() -> Result<()> {
     let params: RenderParams = serde_json::from_str(line.trim())?;
     let plan = RenderPlan {
         mode: params.config.render_mode,
+        state_mode: params.config.state_mode,
         start_s: params.config.start_s,
         end_s: params.config.end_s,
         warmup_s: params.config.warmup_s,

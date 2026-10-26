@@ -5,6 +5,7 @@
   "profile": "headless",
   "video_decode_enabled": false,
   "audio_output": "none",
+  "state_mode": "replay",
   "state_replay": "from_zero_fixed_frame_step",
   "warmup_s": 0.0,
   "input_package_sha256": "59bad2003abb894bc7d2b2267f4c0282f213de5dae3ce1ee6d5d64c9cf6bc4ef",

@@ -16,9 +16,27 @@ pub enum PreviewMode {
     Segment,
 }
 
+/// Describes how scene state is obtained for a bounded request.
+///
+/// `Replay` is the only state mode implemented by the current renderer: it
+/// advances the real scene from time zero with fixed frame steps.  `Stateless`
+/// is part of the wire protocol so callers can distinguish a future direct
+/// seek implementation from replay, but it fails closed until scene state
+/// dependencies (judge, particles, effects and video) have an explicit
+/// contract.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum StateMode {
+    #[default]
+    Replay,
+    Stateless,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RenderPlan {
     pub mode: PreviewMode,
+    #[serde(default)]
+    pub state_mode: StateMode,
     pub start_s: Option<f64>,
     pub end_s: Option<f64>,
     pub warmup_s: f64,
@@ -28,6 +46,7 @@ impl Default for RenderPlan {
     fn default() -> Self {
         Self {
             mode: PreviewMode::Full,
+            state_mode: StateMode::Replay,
             start_s: None,
             end_s: None,
             warmup_s: 0.0,
@@ -42,6 +61,9 @@ impl RenderPlan {
         }
         match self.mode {
             PreviewMode::Full => {
+                if self.state_mode != StateMode::Replay {
+                    bail!("full render requires replay state mode")
+                }
                 if self.start_s.is_some() || self.end_s.is_some() || self.warmup_s != 0.0 {
                     bail!("full render cannot include a bounded time window")
                 }
@@ -56,6 +78,9 @@ impl RenderPlan {
                 if self.end_s.is_some() {
                     bail!("frame render accepts start_s and not end_s")
                 }
+                if self.state_mode == StateMode::Stateless {
+                    bail!("stateless frame mode is reserved until direct scene seeking is implemented")
+                }
             }
             PreviewMode::Segment => {
                 let (Some(start), Some(end)) = (self.start_s, self.end_s) else {
@@ -63,6 +88,9 @@ impl RenderPlan {
                 };
                 if !start.is_finite() || !end.is_finite() || start < 0.0 || end <= start {
                     bail!("segment window must satisfy 0 <= start_s < end_s")
+                }
+                if self.state_mode == StateMode::Stateless {
+                    bail!("stateless segment mode is reserved until direct scene seeking is implemented")
                 }
             }
         }
@@ -90,8 +118,16 @@ impl RenderPlan {
         if fps == 0 {
             bail!("render fps must be positive")
         }
-        let start = (self.start_s.ok_or_else(|| anyhow::anyhow!("segment start_s is missing"))? * fps as f64).ceil() as u64;
-        let end = (self.end_s.ok_or_else(|| anyhow::anyhow!("segment end_s is missing"))? * fps as f64).ceil() as u64;
+        let start = (self
+            .start_s
+            .ok_or_else(|| anyhow::anyhow!("segment start_s is missing"))?
+            * fps as f64)
+            .ceil() as u64;
+        let end = (self
+            .end_s
+            .ok_or_else(|| anyhow::anyhow!("segment end_s is missing"))?
+            * fps as f64)
+            .ceil() as u64;
         if end <= start {
             bail!("segment window contains no frame on the requested fps grid")
         }
@@ -118,6 +154,7 @@ mod tests {
     fn frame_requires_one_time() {
         let plan = RenderPlan {
             mode: PreviewMode::Frame,
+            state_mode: StateMode::Replay,
             start_s: Some(12.5),
             end_s: None,
             warmup_s: 1.0,
@@ -132,6 +169,7 @@ mod tests {
     fn segment_rounds_up_to_frame_grid() {
         let plan = RenderPlan {
             mode: PreviewMode::Segment,
+            state_mode: StateMode::Replay,
             start_s: Some(1.0),
             end_s: Some(2.01),
             warmup_s: 0.5,
@@ -147,6 +185,7 @@ mod tests {
     fn off_grid_segment_uses_emitted_frame_range() {
         let plan = RenderPlan {
             mode: PreviewMode::Segment,
+            state_mode: StateMode::Replay,
             start_s: Some(0.01),
             end_s: Some(0.02),
             warmup_s: 0.0,
@@ -160,10 +199,24 @@ mod tests {
     fn malformed_bounded_plans_fail_closed() {
         let plan = RenderPlan {
             mode: PreviewMode::Segment,
+            state_mode: StateMode::Replay,
             start_s: Some(4.0),
             end_s: Some(4.0),
             warmup_s: 0.0,
         };
         assert!(plan.validate().is_err());
+    }
+
+    #[test]
+    fn stateless_bounded_requests_fail_closed_until_seek_contract_exists() {
+        let plan = RenderPlan {
+            mode: PreviewMode::Frame,
+            state_mode: StateMode::Stateless,
+            start_s: Some(2.0),
+            end_s: None,
+            warmup_s: 0.0,
+        };
+        let error = plan.validate().unwrap_err().to_string();
+        assert!(error.contains("direct scene seeking"));
     }
 }
