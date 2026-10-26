@@ -21,5 +21,14 @@ tokio = { version = "1.23", features = ["process", "rt-multi-thread", "fs"] }
 [profile.release]
 opt-level = 2
 
+# Optional performance build for benchmark comparisons. Keep the default
+# release profile unchanged until a representative visual/audio parity report
+# accepts the optimized binary.
+[profile.release-fast]
+inherits = "release"
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+
 [profile.dev.package."*"]
 opt-level = 2

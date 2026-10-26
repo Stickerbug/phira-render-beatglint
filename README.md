@@ -17,6 +17,11 @@ silent. Bounded requests replay deterministically from time zero; they do not
 yet seek through a saved scene state. Video backgrounds, full-faithful audio
 mixing and state checkpointing therefore remain on the existing AppImage path.
 
+The default release profile remains the reproducible baseline. An explicit
+`release-fast` profile is available for benchmark comparisons (`opt-level=3`,
+thin LTO, one codegen unit) and is promoted only when its output hash matches
+the baseline for the requested mode.
+
 The branch is pushed to the private GitHub repository
 `Stickerbug/phira-render-beatglint`. See [`STATUS.md`](STATUS.md) for current
 evidence and [`docs/render-modes.md`](docs/render-modes.md) for the mode

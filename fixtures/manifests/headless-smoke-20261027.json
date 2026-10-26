@@ -1,7 +1,7 @@
 {
   "format": "beatglint_headless_renderer_smoke_v1",
   "renderer_repo": "Stickerbug/phira-render-beatglint",
-  "renderer_commit": "136c8ff17c4547dc220e945e975b337da6e4c6b8",
+  "renderer_commit": "7daa3271171cb64adc40548c075f59b6b42b7ed9",
   "profile": "headless",
   "video_decode_enabled": false,
   "audio_output": "none",
@@ -93,7 +93,7 @@
     "The first bounded implementation replays from t=0; checkpoint fast-forward is not implemented.",
     "The frame, segment and music-only outputs were decoded successfully with ffprobe; no BeatGlint main pipeline was changed."
   ],
-  "renderer_binary_sha256": "e95b893e78f5df01f3e8d6405b6e0755ca9ed18c5b1f68af818db182ad52d7bd",
+  "renderer_binary_sha256": "1bb585456ce0d2268f51f3f43015c37edd219c479d47a9c4a46838a1d2907556",
   "full_audio_parity": {
     "reference_appimage_output_sha256": "756d7f649b9b286d80d29283e3eb33b4d217e2e87bedfc7ffa019cb4fc6de561",
     "diagnostic_full_output_sha256": "b20eb61b2db29c4edd16810e72bc95958dfbbc036ba52207f76cc665600c3f8e",
@@ -106,5 +106,23 @@
     "elapsed_s": 1.599,
     "visual_parity_claimed": false,
     "pbo_tail_drained": true
+  },
+  "optimized_profile_smoke": {
+    "mode": "segment",
+    "start_s": 3.5,
+    "end_s": 4.0,
+    "fps": 10,
+    "output_sha256": "cd16df306ad0ff7a5f978a539038063104b57cd70ccba469e5c58d6f6fc2edb0",
+    "default_profile": {
+      "name": "release",
+      "binary_sha256": "1bb585456ce0d2268f51f3f43015c37edd219c479d47a9c4a46838a1d2907556",
+      "elapsed_s": 0.767
+    },
+    "fast_profile": {
+      "name": "release-fast",
+      "binary_sha256": "71511f7c78904ccd95ce481e571144afd1dd2bdc5e5754218fff61d10a0774b9",
+      "elapsed_s": 0.513
+    },
+    "output_hash_equal": true
   }
 }

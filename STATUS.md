@@ -27,6 +27,12 @@
   completed frames in order. This is a deliberate dedicated-renderer
   correctness change, so visual output still requires a separate frame-parity
   report before replacing the AppImage reference.
+- An opt-in `release-fast` profile (`opt-level=3`, thin LTO, one codegen unit)
+  was compared with the default release binary on the same bounded Credits
+  segment. Both emitted the identical SHA-256 output
+  `cd16df306ad0ff7a5f978a539038063104b57cd70ccba469e5c58d6f6fc2edb0`; the
+  observed wall time was 0.513 s versus 0.767 s. It remains a benchmark
+  profile, not a silent replacement for the default binary.
 
 ## Explicit limitations
 
