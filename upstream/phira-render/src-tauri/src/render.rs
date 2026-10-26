@@ -59,8 +59,9 @@ pub struct RenderConfig {
     volume_music: f32,
     volume_sfx: f32,
 
-    /// The upstream loop currently implements only `full`. Bounded values are
-    /// parsed and rejected until stateful warmup/output is implemented.
+    /// Bounded values select the diagnostic headless frame/segment path. They
+    /// remain separate from full-faithful output and require explicit mode
+    /// metadata at the caller boundary.
     #[serde(default)]
     render_mode: PreviewMode,
     #[serde(default)]
