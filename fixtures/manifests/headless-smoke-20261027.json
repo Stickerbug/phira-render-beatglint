@@ -1,0 +1,40 @@
+{
+  "format": "beatglint_headless_renderer_smoke_v1",
+  "renderer_repo": "Stickerbug/phira-render-beatglint",
+  "renderer_commit": "74f25b1772d5bde2320e8f202294ef51d6903894",
+  "profile": "headless",
+  "video_decode_enabled": false,
+  "audio_output": "none",
+  "state_replay": "from_zero_fixed_frame_step",
+  "warmup_s": 0.0,
+  "input_package_sha256": "59bad2003abb894bc7d2b2267f4c0282f213de5dae3ce1ee6d5d64c9cf6bc4ef",
+  "input_package": "migration-audit-20261022/phira-smoke/credits-official-prefix4.pez",
+  "config": {
+    "resolution": [320, 180],
+    "fps": 10,
+    "skin": "BeatGlint/resources/phira-render/高仿官皮v6.4.zip"
+  },
+  "cases": [
+    {
+      "mode": "frame",
+      "start_s": 3.8,
+      "output_frames": 1,
+      "output_duration_s": 0.1,
+      "output_video_sha256": "deafa0ef036acc7cd170bef3d2e12950eca87ada82502f09f211967d7fabdf7f"
+    },
+    {
+      "mode": "segment",
+      "start_s": 3.5,
+      "end_s": 4.0,
+      "output_frames": 5,
+      "output_duration_s": 0.5,
+      "output_video_sha256": "cd16df306ad0ff7a5f978a539038063104b57cd70ccba469e5c58d6f6fc2edb0"
+    }
+  ],
+  "limitations": [
+    "This is a diagnostic headless profile, not full-faithful evidence.",
+    "Video backgrounds are omitted and bounded audio is not muxed.",
+    "The first bounded implementation replays from t=0; checkpoint fast-forward is not implemented.",
+    "The frame and segment outputs were decoded successfully with ffprobe; no BeatGlint main pipeline was changed."
+  ]
+}
