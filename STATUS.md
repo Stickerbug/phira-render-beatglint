@@ -12,6 +12,11 @@
 - No renderer binary was rebuilt and no AppImage was replaced.
 - No chart, audio, skin, model, training, separation or transcription data is
   included here.
+- Local checkpoint commits are `05cdcc3`, `5e5850b` and `76a93d6`.
+- The intended GitHub repository is `Stickerbug/phira-render-beatglint`; both
+  `gh repo create` and the REST create call were refused with HTTP 403
+  (`Resource not accessible by integration`). No remote repository was
+  created and no source was pushed.
 
 ## Promotion gates
 
