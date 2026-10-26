@@ -25,8 +25,8 @@
 - This is a diagnostic headless profile, not full-faithful evidence. It omits
   video decoding; bounded output is silent by default. An explicit
   `audio_mode=music-only` segment path now muxes only the source music on the
-  emitted frame grid, but it still needs a real Xorg smoke and is not full
-  gameplay-audio parity.
+  emitted frame grid; its 320×180 Credits smoke is recorded in the manifest
+  with matching 0.5 s video/AAC streams. It is not full gameplay-audio parity.
 - Bounded rendering replays from t=0 with a fixed frame step. Non-zero warmup
   is currently rejected until scene state can be checkpointed safely.
 - The full AppImage remains the golden reference for particles, video
