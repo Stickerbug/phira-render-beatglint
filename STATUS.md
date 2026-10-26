@@ -19,6 +19,10 @@
 - The release binary exits successfully and the generated outputs decode with
   `ffprobe`. The runtime still prints macroquad async wake warnings on stderr;
   these are tracked as a runtime cleanup item, not treated as parity evidence.
+- The full-render mixer now streams 8192-frame chunks instead of materializing
+  the whole-song float buffer. Against the existing AppImage on the same
+  Credits smoke, decoded stereo PCM was byte-identical; the comparison and
+  measured RSS are recorded in `docs/full-audio-mix-parity-20261027.md`.
 
 ## Explicit limitations
 

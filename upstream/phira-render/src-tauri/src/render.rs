@@ -274,46 +274,6 @@ pub async fn main() -> Result<()> {
         assert_eq!(sample_rate, sfx_click.sample_rate());
         assert_eq!(sample_rate, sfx_drag.sample_rate());
         assert_eq!(sample_rate, sfx_flick.sample_rate());
-        let mut output = vec![0.0_f32; (video_length * sample_rate as f64).ceil() as usize * 2];
-        {
-            let pos = O - chart.offset.min(0.) as f64;
-            let count = (music.length() as f64 * sample_rate as f64) as usize;
-            let mut it = output[((pos * sample_rate as f64).round() as usize * 2)..].iter_mut();
-            let ratio = 1. / sample_rate as f64;
-            for frame in 0..count {
-                let position = frame as f64 * ratio;
-                let frame = music.sample(position as f32).unwrap_or_default();
-                *it.next().unwrap() += frame.0 * volume_music;
-                *it.next().unwrap() += frame.1 * volume_music;
-            }
-        }
-        let mut place = |pos: f64, clip: &AudioClip, volume: f32| {
-            let position = (pos * sample_rate as f64).round() as usize * 2;
-            if position >= output.len() { return 0; }
-            let slice = &mut output[position..];
-            let len = (slice.len() / 2).min(clip.frame_count());
-            let mut it = slice.iter_mut();
-            for frame in clip.frames()[..len].iter() {
-                *it.next().unwrap() += frame.0 * volume;
-                *it.next().unwrap() += frame.1 * volume;
-            }
-            len
-        };
-        for note in chart.lines.iter().flat_map(|it| it.notes.iter()).filter(|it| !it.fake) {
-            place(
-                O + note.time as f64 + offset as f64,
-                match note.kind {
-                    NoteKind::Click | NoteKind::Hold { .. } => &sfx_click,
-                    NoteKind::Drag => &sfx_drag,
-                    NoteKind::Flick => &sfx_flick,
-                },
-                volume_sfx,
-            );
-        }
-        let mut pos = O + length + A;
-        while place(pos, &ending, volume_music) != 0 {
-            pos += ending.frame_count() as f64 / sample_rate as f64;
-        }
         let mut mix_proc = cmd_hidden(&ffmpeg)
             .args("-y -f f32le -ar 44100 -ac 2 -i - -c:a mp3 -f mp3".split_whitespace())
             .arg(mixing_output.as_ref().unwrap().path())
@@ -323,16 +283,78 @@ pub async fn main() -> Result<()> {
             .with_context(|| tl!("run-ffmpeg-failed"))?;
         let input = mix_proc.stdin.as_mut().unwrap();
         let mut writer = BufWriter::new(input);
+        // Keep only one bounded mix chunk resident. The old implementation
+        // materialized the whole song as interleaved f32 samples (about 84 MiB
+        // for a four-minute stereo track) before starting FFmpeg.
+        const MIX_CHUNK_FRAMES: usize = 8192;
         const MIX_WRITE_CHUNK_BYTES: usize = 64 * 1024;
-        let mut encoded = Vec::with_capacity(MIX_WRITE_CHUNK_BYTES);
-        for sample in output.into_iter() {
-            encoded.extend_from_slice(&sample.to_le_bytes());
-            if encoded.len() >= MIX_WRITE_CHUNK_BYTES {
+        let total_frames = (video_length * sample_rate as f64).ceil() as usize;
+        let music_start = (O - chart.offset.min(0.) as f64) * sample_rate as f64;
+        let music_start_frame = music_start.round() as i64;
+        let music_frames = (music.length() as f64 * sample_rate as f64) as i64;
+        let ending_start_frame = ((O + length + A) * sample_rate as f64).round() as i64;
+        let ending_step = ending.frame_count() as i64;
+
+        for chunk_start in (0..total_frames).step_by(MIX_CHUNK_FRAMES) {
+            let chunk_frames = (total_frames - chunk_start).min(MIX_CHUNK_FRAMES);
+            let mut chunk = vec![0.0_f32; chunk_frames * 2];
+            for local in 0..chunk_frames {
+                let absolute = chunk_start as i64 + local as i64;
+                let music_index = absolute - music_start_frame;
+                if (0..music_frames).contains(&music_index) {
+                    let frame = music.sample(music_index as f32 / sample_rate as f32).unwrap_or_default();
+                    chunk[local * 2] += frame.0 * volume_music;
+                    chunk[local * 2 + 1] += frame.1 * volume_music;
+                }
+            }
+            let mut place = |pos: f64, clip: &AudioClip, volume: f32| {
+                let event_start = (pos * sample_rate as f64).round() as i64;
+                if event_start < 0 {
+                    return;
+                }
+                let source_start = (chunk_start as i64 - event_start).max(0) as usize;
+                let destination_start = (event_start - chunk_start as i64).max(0) as usize;
+                if source_start >= clip.frame_count() || destination_start >= chunk_frames {
+                    return;
+                }
+                let count = (chunk_frames - destination_start).min(clip.frame_count() - source_start);
+                for index in 0..count {
+                    let frame = clip.frames()[source_start + index];
+                    let destination = (destination_start + index) * 2;
+                    chunk[destination] += frame.0 * volume;
+                    chunk[destination + 1] += frame.1 * volume;
+                }
+            };
+            for note in chart.lines.iter().flat_map(|it| it.notes.iter()).filter(|it| !it.fake) {
+                place(
+                    O + note.time as f64 + offset as f64,
+                    match note.kind {
+                        NoteKind::Click | NoteKind::Hold { .. } => &sfx_click,
+                        NoteKind::Drag => &sfx_drag,
+                        NoteKind::Flick => &sfx_flick,
+                    },
+                    volume_sfx,
+                );
+            }
+            if ending_step > 0 {
+                let mut start = ending_start_frame;
+                while start < total_frames as i64 {
+                    place(start as f64 / sample_rate as f64, &ending, volume_music);
+                    start += ending_step;
+                }
+            }
+            let mut encoded = Vec::with_capacity(MIX_WRITE_CHUNK_BYTES);
+            for sample in chunk {
+                encoded.extend_from_slice(&sample.to_le_bytes());
+                if encoded.len() >= MIX_WRITE_CHUNK_BYTES {
+                    writer.write_all(&encoded)?;
+                    encoded.clear();
+                }
+            }
+            if !encoded.is_empty() {
                 writer.write_all(&encoded)?;
-                encoded.clear();
             }
         }
-        if !encoded.is_empty() { writer.write_all(&encoded)?; }
         drop(writer);
         mix_proc.wait()?;
     }
