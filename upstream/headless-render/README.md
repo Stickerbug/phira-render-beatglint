@@ -3,9 +3,10 @@
 # Headless renderer prototype
 
 This crate is the first build boundary for the dedicated renderer. It reuses
-the upstream `render.rs` protocol and chart rendering code while omitting the
-Tauri application, tray, WebView and task queue. The existing full renderer
-remains under `upstream/phira-render` and remains the visual reference.
+the saved upstream `render.rs` protocol slice and chart rendering code while
+omitting the Tauri application, tray, WebView and task queue. The full Phira
+AppImage remains the visual reference; this public tree does not ship the
+private full application or its runtime assets.
 
 The crate now uses the `prpr` headless feature: it avoids Tauri, file dialogs,
 and live CPAL/ALSA audio while retaining decoded clips and chart timing. It is
