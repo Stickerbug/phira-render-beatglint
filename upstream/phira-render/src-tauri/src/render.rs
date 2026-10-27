@@ -295,9 +295,12 @@ pub async fn main() -> Result<()> {
         let ending_start_frame = ((O + length + A) * sample_rate as f64).round() as i64;
         let ending_step = ending.frame_count() as i64;
 
+        let mut chunk = Vec::with_capacity(MIX_CHUNK_FRAMES * 2);
+        let mut encoded = Vec::with_capacity(MIX_WRITE_CHUNK_BYTES);
         for chunk_start in (0..total_frames).step_by(MIX_CHUNK_FRAMES) {
             let chunk_frames = (total_frames - chunk_start).min(MIX_CHUNK_FRAMES);
-            let mut chunk = vec![0.0_f32; chunk_frames * 2];
+            chunk.clear();
+            chunk.resize(chunk_frames * 2, 0.0);
             for local in 0..chunk_frames {
                 let absolute = chunk_start as i64 + local as i64;
                 let music_index = absolute - music_start_frame;
@@ -343,8 +346,8 @@ pub async fn main() -> Result<()> {
                     start += ending_step;
                 }
             }
-            let mut encoded = Vec::with_capacity(MIX_WRITE_CHUNK_BYTES);
-            for sample in chunk {
+            encoded.clear();
+            for sample in chunk.iter().copied() {
                 encoded.extend_from_slice(&sample.to_le_bytes());
                 if encoded.len() >= MIX_WRITE_CHUNK_BYTES {
                     writer.write_all(&encoded)?;
