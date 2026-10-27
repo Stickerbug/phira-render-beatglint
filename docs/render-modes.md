@@ -37,3 +37,10 @@ it as AAC; it deliberately excludes click/drag/flick SFX and ending audio.
 Frame requests and the default `audio_mode=none` remain silent. The complete
 audio and video mix still belongs to `full-faithful` until its clock terms have
 been checked against the golden AppImage.
+
+Callers converting nominal gameplay time should use
+`tools/convert_chart_window.py` and record its JSON in the artifact manifest.
+The reset and readback-lag fields are profile inputs: the full AppImage's
+historical PBO path uses a two-frame lag at 30 fps, while bounded direct
+readback uses zero lag. Neither profile should be replaced by a global magic
+offset.
