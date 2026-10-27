@@ -20,7 +20,7 @@ use sasa::AudioClip;
 use serde::{Deserialize, Serialize};
 use std::{
     cell::RefCell,
-    collections::HashSet,
+    collections::{HashSet, VecDeque},
     io::{BufRead, BufWriter, Write},
     ops::DerefMut,
     path::{Path, PathBuf},
@@ -676,7 +676,7 @@ pub async fn main() -> Result<()> {
     }
 
     let byte_size = vw as usize * vh as usize * 4;
-    let mut bounded_rgba = bounded.then(|| vec![0_u8; byte_size]);
+    let mut bounded_rgba = (bounded && !resident).then(|| vec![0_u8; byte_size]);
 
     let frames = if bounded {
         (video_length / frame_delta as f64).ceil() as u64 + 1
@@ -706,7 +706,7 @@ pub async fn main() -> Result<()> {
 
     const N: usize = 3;
     let mut pbos: [GLuint; N] = [0; N];
-    if !bounded { unsafe {
+    if !bounded || resident { unsafe {
         use miniquad::gl::*;
         glGenBuffers(N as _, pbos.as_mut_ptr());
         for pbo in pbos {
@@ -729,6 +729,8 @@ pub async fn main() -> Result<()> {
     let mut readback_write_s = 0.0;
     let mut readback_gl_s = 0.0;
     let mut readback_io_s = 0.0;
+    let mut resident_pbo_next = 0usize;
+    let mut resident_pending: VecDeque<(GLuint, usize)> = VecDeque::new();
 
     let emit_pbo = |pbo: GLuint, sinks: &mut [VideoSink]| -> Result<()> {
         unsafe {
@@ -739,6 +741,27 @@ pub async fn main() -> Result<()> {
                 bail!("failed to map completed pixel-readback buffer")
             }
             sinks[0]
+                .input
+                .as_mut()
+                .context("FFmpeg stdin unavailable")?
+                .write_all(&std::slice::from_raw_parts(src as *const u8, byte_size))?;
+            glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+        }
+        send(IPCEvent::Frame);
+        Ok(())
+    };
+
+    let emit_resident_pbo = |pbo: GLuint, sink_index: usize, sinks: &mut [VideoSink]| -> Result<()> {
+        unsafe {
+            use miniquad::gl::*;
+            glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
+            let src = glMapBuffer(GL_PIXEL_PACK_BUFFER, 0x88B8);
+            if src.is_null() {
+                bail!("failed to map completed resident pixel-readback buffer")
+            }
+            sinks
+                .get_mut(sink_index)
+                .context("resident sink index out of range")?
                 .input
                 .as_mut()
                 .context("FFmpeg stdin unavailable")?
@@ -792,44 +815,78 @@ pub async fn main() -> Result<()> {
                     let (start_frame, end_frame) = segment_frame_range.expect("segment frame range");
                     frame >= start_frame && frame < end_frame
                 }
-                PreviewMode::Full => resident,
+                PreviewMode::Full => {
+                    resident
+                        && resident_frame_ranges
+                            .iter()
+                            .any(|(start_frame, end_frame)| frame >= *start_frame && frame < *end_frame)
+                }
             };
             if emit {
-                let rgba = bounded_rgba.as_mut().expect("bounded readback buffer");
-                unsafe {
-                    use miniquad::gl::*;
-                    let tex = mst.output().texture.raw_miniquad_texture_handle();
-                    glBindFramebuffer(GL_READ_FRAMEBUFFER, internal_id(mst.output()));
-                    let gl_read_start = profile.then(Instant::now);
-                    glReadPixels(0, 0, tex.width as _, tex.height as _, GL_RGBA, GL_UNSIGNED_BYTE, rgba.as_mut_ptr() as *mut _);
-                    if let Some(start) = gl_read_start {
-                        readback_gl_s += start.elapsed().as_secs_f64();
-                    }
-                }
-                let io_start = profile.then(Instant::now);
                 if resident {
-                    for (sink_index, (start_frame, end_frame)) in resident_frame_ranges.iter().enumerate() {
-                        if frame >= *start_frame && frame < *end_frame {
-                            sinks[sink_index]
-                                .input
-                                .as_mut()
-                                .context("FFmpeg stdin unavailable")?
-                                .write_all(rgba)?;
-                            send(IPCEvent::Frame);
+                    let Some(sink_index) = resident_frame_ranges
+                        .iter()
+                        .position(|(start_frame, end_frame)| frame >= *start_frame && frame < *end_frame)
+                    else {
+                        bail!("resident frame was selected without an output window")
+                    };
+                    // Drain the oldest slot before reusing its PBO. Mapping after
+                    // overwriting the slot would silently compare the wrong frame.
+                    if resident_pending.len() >= N {
+                        let (ready_pbo, ready_sink) = resident_pending
+                            .pop_front()
+                            .expect("resident PBO queue length checked");
+                        let io_start = profile.then(Instant::now);
+                        emit_resident_pbo(ready_pbo, ready_sink, &mut sinks)?;
+                        if let Some(start) = io_start {
+                            readback_io_s += start.elapsed().as_secs_f64();
                         }
                     }
+                    let pbo = pbos[resident_pbo_next % N];
+                    resident_pbo_next += 1;
+                    unsafe {
+                        use miniquad::gl::*;
+                        let tex = mst.output().texture.raw_miniquad_texture_handle();
+                        glBindFramebuffer(GL_READ_FRAMEBUFFER, internal_id(mst.output()));
+                        glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
+                        let gl_read_start = profile.then(Instant::now);
+                        glReadPixels(0, 0, tex.width as _, tex.height as _, GL_RGBA, GL_UNSIGNED_BYTE, std::ptr::null_mut());
+                        if let Some(start) = gl_read_start {
+                            readback_gl_s += start.elapsed().as_secs_f64();
+                        }
+                    }
+                    resident_pending.push_back((pbo, sink_index));
                 } else {
+                    let rgba = bounded_rgba.as_mut().expect("bounded readback buffer");
+                    unsafe {
+                        use miniquad::gl::*;
+                        let tex = mst.output().texture.raw_miniquad_texture_handle();
+                        glBindFramebuffer(GL_READ_FRAMEBUFFER, internal_id(mst.output()));
+                        let gl_read_start = profile.then(Instant::now);
+                        glReadPixels(0, 0, tex.width as _, tex.height as _, GL_RGBA, GL_UNSIGNED_BYTE, rgba.as_mut_ptr() as *mut _);
+                        if let Some(start) = gl_read_start {
+                            readback_gl_s += start.elapsed().as_secs_f64();
+                        }
+                    }
+                    let io_start = profile.then(Instant::now);
                     sinks[0]
                         .input
                         .as_mut()
                         .context("FFmpeg stdin unavailable")?
                         .write_all(rgba)?;
                     send(IPCEvent::Frame);
-                }
-                if let Some(start) = io_start {
-                    readback_io_s += start.elapsed().as_secs_f64();
+                    if let Some(start) = io_start {
+                        readback_io_s += start.elapsed().as_secs_f64();
+                    }
                 }
             }
+        }
+    }
+    while let Some((pbo, sink_index)) = resident_pending.pop_front() {
+        let io_start = profile.then(Instant::now);
+        emit_resident_pbo(pbo, sink_index, &mut sinks)?;
+        if let Some(start) = io_start {
+            readback_io_s += start.elapsed().as_secs_f64();
         }
     }
     if !bounded {
@@ -848,7 +905,7 @@ pub async fn main() -> Result<()> {
             bail!("FFmpeg video encode exited unsuccessfully")
         }
     }
-    if !bounded {
+    if !bounded || resident {
         unsafe {
             use miniquad::gl::*;
             glDeleteBuffers(N as _, pbos.as_ptr());
