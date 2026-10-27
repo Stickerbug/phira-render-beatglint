@@ -479,7 +479,7 @@ pub async fn main() -> Result<()> {
             && output_path.extension().and_then(|it| it.to_str()).is_some_and(|it| it.eq_ignore_ascii_case("png"));
         let mut command = cmd_hidden(&ffmpeg);
         command.args([
-            "-y", "-f", "rawvideo", "-c:v", "rawvideo", "-pix_fmt", "rgb24",
+            "-y", "-f", "rawvideo", "-c:v", "rawvideo", "-pix_fmt", "rgba",
             "-s", &format!("{vw}x{vh}"), "-r", &fps.to_string(), "-i", "-",
         ]);
         if frame_png {
@@ -518,7 +518,7 @@ pub async fn main() -> Result<()> {
         let has_qsv = params.config.hardware_accel && codecs.contains("h264_qsv");
         let mut args = "-y -f rawvideo -c:v rawvideo".to_owned();
         if use_cuda { args += " -hwaccel_output_format cuda"; }
-        write!(&mut args, " -s {vw}x{vh} -r {fps} -pix_fmt rgb24 -i - -i")?;
+        write!(&mut args, " -s {vw}x{vh} -r {fps} -pix_fmt rgba -i - -i")?;
         let args2 = format!(
             "-c:a copy -c:v {} -pix_fmt yuv420p -b:v {} -map 0:v:0 -map 1:a:0 -vf vflip -f mp4",
             if use_cuda { "h264_nvenc" } else if has_qsv { "h264_qsv" } else if params.config.hardware_accel { bail!(tl!("no-hw-acc")); } else { "libx264" },
@@ -536,11 +536,8 @@ pub async fn main() -> Result<()> {
     };
     let mut input = proc.stdin.take().unwrap();
 
-    // The render target is RGB8. Read back only the three color bytes per
-    // pixel; the previous RGBA path moved an unused alpha byte through GL,
-    // the PBO, and ffmpeg for every frame.
-    let byte_size = vw as usize * vh as usize * 3;
-    let mut bounded_rgb = bounded.then(|| vec![0_u8; byte_size]);
+    let byte_size = vw as usize * vh as usize * 4;
+    let mut bounded_rgba = bounded.then(|| vec![0_u8; byte_size]);
 
     let frames = if bounded {
         (video_length / frame_delta as f64).ceil() as u64 + 1
@@ -570,20 +567,13 @@ pub async fn main() -> Result<()> {
             glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
             glBufferData(
                 GL_PIXEL_PACK_BUFFER,
-                byte_size as _,
+                (vw as u64 * vh as u64 * 4) as _,
                 std::ptr::null(),
                 GL_STREAM_READ,
             );
         }
         glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
     }}
-    // RGB rows are three bytes per pixel. Remove the default four-byte row
-    // padding so the packed stream is exactly `width * height * 3` bytes for
-    // every resolution, including widths that are not multiples of four.
-    unsafe {
-        use miniquad::gl::*;
-        glPixelStorei(0x0D05, 1); // GL_PACK_ALIGNMENT
-    }
 
     send(IPCEvent::StartRender(output_frames));
 
@@ -637,7 +627,7 @@ pub async fn main() -> Result<()> {
                 let tex = mst.output().texture.raw_miniquad_texture_handle();
                 glBindFramebuffer(GL_READ_FRAMEBUFFER, internal_id(mst.output()));
                 glBindBuffer(GL_PIXEL_PACK_BUFFER, pbos[frame as usize % N]);
-                glReadPixels(0, 0, tex.width as _, tex.height as _, GL_RGB, GL_UNSIGNED_BYTE, std::ptr::null_mut());
+                glReadPixels(0, 0, tex.width as _, tex.height as _, GL_RGBA, GL_UNSIGNED_BYTE, std::ptr::null_mut());
             }
             if frame + 1 >= N as u64 {
                 emit_pbo(pbos[(frame + 1) as usize % N], &mut input)?;
@@ -655,19 +645,19 @@ pub async fn main() -> Result<()> {
                 PreviewMode::Full => false,
             };
             if emit {
-                let rgb = bounded_rgb.as_mut().expect("bounded readback buffer");
+                let rgba = bounded_rgba.as_mut().expect("bounded readback buffer");
                 unsafe {
                     use miniquad::gl::*;
                     let tex = mst.output().texture.raw_miniquad_texture_handle();
                     glBindFramebuffer(GL_READ_FRAMEBUFFER, internal_id(mst.output()));
                     let gl_read_start = profile.then(Instant::now);
-                    glReadPixels(0, 0, tex.width as _, tex.height as _, GL_RGB, GL_UNSIGNED_BYTE, rgb.as_mut_ptr() as *mut _);
+                    glReadPixels(0, 0, tex.width as _, tex.height as _, GL_RGBA, GL_UNSIGNED_BYTE, rgba.as_mut_ptr() as *mut _);
                     if let Some(start) = gl_read_start {
                         readback_gl_s += start.elapsed().as_secs_f64();
                     }
                 }
                 let io_start = profile.then(Instant::now);
-                input.write_all(rgb)?;
+                input.write_all(rgba)?;
                 if let Some(start) = io_start {
                     readback_io_s += start.elapsed().as_secs_f64();
                 }
