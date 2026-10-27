@@ -10,7 +10,7 @@ terms remain in force.
 | Original `phira-render` source | `upstream/phira-render` | Apache-2.0 | See `LICENSES/Apache-2.0.txt` and `upstream/phira-render/LICENSE`. Modified renderer files retain the upstream attribution. |
 | `macroquad` | Locked Git dependency recorded in `upstream/headless-render/Cargo.lock` | MIT OR Apache-2.0 | The incomplete local source snapshot is intentionally not vendored; see `LICENSES/MIT.txt` and `LICENSES/Apache-2.0-macroquad.txt`. |
 | `prpr-avc` snapshot | `upstream/phira/prpr-avc` | GPL-3.0-only, as part of the pinned TeamFlos/phira repository | The snapshot's Cargo manifest now records the upstream GPL license; do not remove or replace upstream headers. |
-| Other Cargo dependencies | `upstream/*/Cargo.toml`, lockfiles | Their respective package licenses | A release SBOM/license report must be generated from the locked dependency graph. |
+| Other Cargo dependencies | `upstream/*/Cargo.toml`, lockfiles | Their respective package licenses | Check each dependency license before redistribution. |
 
 The root GPL-3.0-only notice applies to BeatGlint's new and modified source as
 an independently copyrightable contribution and to the combined distribution
