@@ -91,6 +91,20 @@ bounded 配置字段示例：
 
 请求仍通过标准输入的两行协议发送：第一行是完整 JSON 请求，第二行是兼容旧调用方的占位输出路径。设置 `residentWindows` 后，第二行会被忽略；每个窗口的 `output` 才是实际产物路径。
 
+不想手工编辑 JSON 时，可使用仓库内的包装脚本。它从基础 `RenderParams` 复制 `config`，只注入 resident 所需字段，并在启动前检查窗口顺序、输出目录和重复路径：
+
+```bash
+python tools/render_resident_windows.py \
+  --params params.json \
+  --renderer-binary upstream/headless-render/target/release/phira-render-headless \
+  --assets /path/to/phira-render/assets \
+  --window 40.0 41.0 /tmp/preview-a.mp4 \
+  --window 41.0 42.0 /tmp/preview-b.mp4 \
+  --payload-out /tmp/resident-request.json
+```
+
+脚本继承当前进程的 `DISPLAY`、Mesa 和 FFmpeg 环境变量；输出父目录必须先存在。它只负责启动一次 renderer，不负责上传网站或替换已有输入。
+
 ```json
 {
   "renderMode": "full",

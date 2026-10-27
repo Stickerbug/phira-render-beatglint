@@ -16,4 +16,6 @@ cargo build --release --manifest-path upstream/headless-render/Cargo.toml
 
 中文公开发布和运行方法见仓库根目录的 `docs/使用说明-zh.md`。
 
+多窗口预览可直接调用仓库根目录的 `tools/render_resident_windows.py`；它会从基础参数注入 `config.residentWindows`，并让一次 renderer 回放生成多个静音窗口。
+
 English version: [`README.md`](README.md)。

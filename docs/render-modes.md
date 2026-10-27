@@ -16,7 +16,9 @@ chart/audio input SHAs, mode, state mode, time window, warmup, frame rate,
 and whether particles, effects, video and audio were enabled. A bounded
 request currently uses `state_mode=replay`; `warmup_s` must remain
 zero. A resident request is supplied through `config.residentWindows`, an
-ordered array of `{startS, endS, output}` windows. The renderer replays from
+ordered array of `{startS, endS, output}` windows. The repository wrapper
+`tools/render_resident_windows.py` can inject these fields and launch one
+process without hand-editing JSON. The renderer replays from
 time zero once to the largest `endS`, routes each frame range to its own
 FFmpeg sink, and keeps the ordinary two-line stdin protocol. The second
 output-path line is still required for protocol compatibility and is ignored
