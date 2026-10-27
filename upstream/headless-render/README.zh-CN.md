@@ -2,7 +2,7 @@
 
 这是 BeatGlint 专用渲染器的无 Tauri 构建边界。它复用 `prpr` 的谱面、判定线和几何渲染代码以及保存下来的 `render.rs` 协议切片，移除 Tauri、文件对话框、实时 CPAL/ALSA 音频和视频解码。
 
-当前支持单帧 PNG、bounded segment、replay/state/audio 显式协议和可选 source-music-only 音频。它从时间零开始固定帧回放，不支持随机 seek、checkpoint 或 resident worker；完整 Phira/AppImage 仍是视觉参考。
+当前支持单帧 PNG、bounded segment、replay/state/audio 显式协议和可选 source-music-only 音频。还提供实验性的 `residentWindows` 顺序窗口输出：它从时间零回放一次并将连续窗口分别写入 FFmpeg，不支持随机 seek 或 checkpoint；完整 Phira/AppImage 仍是视觉参考。
 
 ## 构建
 
