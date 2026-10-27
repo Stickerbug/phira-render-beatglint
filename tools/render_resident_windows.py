@@ -5,7 +5,8 @@ The renderer's stdin protocol is two JSON lines: a RenderParams object and a
 legacy output path. This wrapper keeps the source params intact, injects the
 validated ``config.residentWindows`` list, and launches one resident replay.
 It is intentionally a thin process wrapper: it does not inspect or mutate
-charts, audio, skins, or existing output files.
+charts, audio, skins, or existing output files. ``--audio-mode music-only``
+adds source music to each window without gameplay sound effects.
 """
 
 from __future__ import annotations
@@ -83,7 +84,7 @@ def load_params(path: Path) -> dict[str, Any]:
     return data
 
 
-def build_payload(params: dict[str, Any], windows: list[dict[str, Any]]) -> dict[str, Any]:
+def build_payload(params: dict[str, Any], windows: list[dict[str, Any]], audio_mode: str) -> dict[str, Any]:
     # Make a shallow copy of the top-level object and a fresh config so callers
     # can safely reuse the source JSON. The renderer itself remains authoritative
     # for the final validation of all fields.
@@ -91,7 +92,7 @@ def build_payload(params: dict[str, Any], windows: list[dict[str, Any]]) -> dict
     config = dict(params["config"])
     config["renderMode"] = "full"
     config["stateMode"] = "replay"
-    config["audioMode"] = "none"
+    config["audioMode"] = audio_mode
     config["warmupS"] = 0.0
     config.pop("startS", None)
     config.pop("endS", None)
@@ -114,12 +115,18 @@ def main() -> int:
         help="ordered half-open window; repeat for additional outputs",
     )
     parser.add_argument("--payload-out", type=Path, help="optional path to save the generated resident JSON")
+    parser.add_argument(
+        "--audio-mode",
+        choices=("none", "music-only"),
+        default="none",
+        help="per-window audio mode; music-only adds source music without gameplay SFX",
+    )
     args = parser.parse_args()
 
     try:
         source = load_params(args.params)
         windows = validate_windows([parse_window(values) for values in args.window])
-        payload = build_payload(source, windows)
+        payload = build_payload(source, windows, args.audio_mode)
         if not args.renderer_binary.is_file():
             raise ValueError(f"renderer binary does not exist: {args.renderer_binary}")
         if not args.assets.is_dir():

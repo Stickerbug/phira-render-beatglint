@@ -23,8 +23,10 @@ time zero once to the largest `endS`, routes each frame range to its own
 FFmpeg sink, and keeps the ordinary two-line stdin protocol. The second
 output-path line is still required for protocol compatibility and is ignored
 for this mode. Windows must be non-overlapping and use `renderMode=full`,
-`stateMode=replay`, `audioMode=none`. This is an ordered throughput
-optimization, not random seeking or a state checkpoint. It is the recommended
+`stateMode=replay`, with `audioMode=none` or `audioMode=music-only`. The latter
+writes one source-music stream per window and excludes gameplay SFX and ending
+audio. This is an ordered throughput optimization, not random seeking or a
+state checkpoint. It is the recommended
 preview path when multiple windows are requested; full-faithful audio/video
 parity and final Phira visual review remain on the complete renderer/AppImage
 path.

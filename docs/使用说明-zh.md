@@ -103,6 +103,8 @@ python tools/render_resident_windows.py \
   --payload-out /tmp/resident-request.json
 ```
 
+需要把源音乐一起写入每个窗口时，增加 `--audio-mode music-only`。这只包含源音乐，不包含判定音效和 ending 音频。
+
 脚本继承当前进程的 `DISPLAY`、Mesa 和 FFmpeg 环境变量；输出父目录必须先存在。它只负责启动一次 renderer，不负责上传网站或替换已有输入。
 
 ```json
@@ -127,7 +129,7 @@ python tools/render_resident_windows.py \
 | --- | --- | --- |
 | `config.renderMode` | 字符串 | 必须为 `full`；resident 自己决定要输出哪些窗口 |
 | `config.stateMode` | 字符串 | 必须为 `replay`；从时间零按固定帧步长推进 |
-| `config.audioMode` | 字符串 | 必须为 `none`；每个窗口为静音 MP4 |
+| `config.audioMode` | 字符串 | `none` 或 `music-only`；后者为每个窗口附加源音乐 |
 | `config.residentWindows` | 数组 | 至少一个窗口，按 `startS` 递增且不能重叠 |
 | `startS` / `endS` | 有限非负数 | 必须满足 `0 <= startS < endS`，单位为 renderer scene 秒 |
 | `output` | 路径字符串 | 每个窗口唯一的 MP4 路径；父目录需预先存在 |
@@ -144,7 +146,7 @@ python tools/convert_chart_window.py \
 
 转换结果应随 artifact manifest 保存。不要在调用代码中直接写死 `+3.6`；完整 AppImage 和 bounded direct-readback 使用不同的 readback profile。
 
-单帧输出时将第二行输出路径改成 `.png`，例如 `/tmp/frame.png`。`audioMode=music-only` 只适用于 segment，且只包含源音乐，不包含判定音效和 ending 音频。
+单帧输出时将第二行输出路径改成 `.png`，例如 `/tmp/frame.png`。`audioMode=music-only` 适用于 segment 和 resident，且只包含源音乐，不包含判定音效和 ending 音频。
 
 ## 验证结果
 

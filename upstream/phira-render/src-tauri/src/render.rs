@@ -23,7 +23,7 @@ use std::{
     collections::HashSet,
     io::{BufRead, BufWriter, Write},
     ops::DerefMut,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Child, ChildStdin, Command, Stdio},
     rc::Rc,
     sync::atomic::{AtomicBool, Ordering},
@@ -107,7 +107,30 @@ struct ResidentWindow {
 
 struct VideoSink {
     child: Child,
-    input: ChildStdin,
+    input: Option<ChildStdin>,
+}
+
+impl Drop for VideoSink {
+    fn drop(&mut self) {
+        // An early readback or pipe error can leave FFmpeg alive after the
+        // renderer returns. Normal completion moves both fields out below,
+        // so this only handles the failure path.
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
+fn resident_output_key(path: &Path) -> Result<PathBuf> {
+    let Some(file_name) = path.file_name() else {
+        bail!("resident output must name a file")
+    };
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    let parent = std::fs::canonicalize(parent)
+        .with_context(|| format!("resident output parent does not exist: {}", parent.display()))?;
+    if !parent.is_dir() {
+        bail!("resident output parent is not a directory: {}", parent.display())
+    }
+    Ok(parent.join(file_name))
 }
 
 impl RenderConfig {
@@ -232,9 +255,12 @@ pub async fn main() -> Result<()> {
     if resident {
         if params.config.render_mode != PreviewMode::Full
             || params.config.state_mode != StateMode::Replay
-            || params.config.audio_mode != BoundedAudioMode::None
+            || !matches!(
+                params.config.audio_mode,
+                BoundedAudioMode::None | BoundedAudioMode::MusicOnly
+            )
         {
-            bail!("resident windows require full/replay configuration with no bounded audio")
+            bail!("resident windows require full/replay configuration with none or music-only audio")
         }
         let mut previous_end = 0.0;
         let mut outputs = HashSet::new();
@@ -252,7 +278,8 @@ pub async fn main() -> Result<()> {
             if end_frame <= start_frame {
                 bail!("resident window contains no frame on the requested fps grid")
             }
-            if !outputs.insert(window.output.clone()) {
+            let output_key = resident_output_key(&window.output)?;
+            if !outputs.insert(output_key) {
                 bail!("resident windows must use distinct output paths")
             }
             previous_end = window.end_s;
@@ -261,7 +288,8 @@ pub async fn main() -> Result<()> {
     if bounded && plan.warmup_s != 0.0 {
         bail!("non-zero warmup is reserved until state checkpoints are implemented")
     }
-    if params.config.audio_mode != BoundedAudioMode::None
+    if !resident
+        && params.config.audio_mode != BoundedAudioMode::None
         && (plan.mode != PreviewMode::Segment || plan.state_mode != StateMode::Replay)
     {
         bail!("bounded audio requires segment mode with replay state")
@@ -496,42 +524,69 @@ pub async fn main() -> Result<()> {
     let fps = params.config.fps;
     let frame_delta = 1. / fps as f32;
 
+    let resident_frame_ranges = if resident {
+        params
+            .config
+            .resident_windows
+            .iter()
+            .map(|window| {
+                (
+                    (window.start_s * fps as f64).ceil() as u64,
+                    (window.end_s * fps as f64).ceil() as u64,
+                )
+            })
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
+
     // A bounded music-only segment uses the same absolute scene clock as the
-    // full mixer, but writes only the emitted frame-grid window. Keep the raw
-    // temporary alive until FFmpeg exits; frame output stays silent.
+    // full mixer, but writes only the emitted frame-grid window. Resident
+    // windows get one short audio input per output so each MP4 starts at its
+    // own scene time. Keep the raw temporaries alive until FFmpeg exits.
     let mut bounded_audio_file = None;
+    let mut resident_audio_files = Vec::new();
     if bounded && params.config.audio_mode == BoundedAudioMode::MusicOnly {
-        let (start_frame, end_frame) = plan.segment_frame_range(fps)?;
-        let scene_start = start_frame as f64 / fps as f64;
-        let duration = (end_frame - start_frame) as f64 / fps as f64;
         let sample_rate = 44_100_u32;
         let music_start_scene = O - chart.offset.min(0.) as f64;
-        let sample_count = (duration * sample_rate as f64).round() as usize;
-        let audio = NamedTempFile::new()?;
-        let mut writer = BufWriter::new(audio.as_file());
         const AUDIO_WRITE_CHUNK_BYTES: usize = 64 * 1024;
-        let mut encoded = Vec::with_capacity(AUDIO_WRITE_CHUNK_BYTES);
-        for sample_index in 0..sample_count {
-            let scene_time = scene_start + sample_index as f64 / sample_rate as f64;
-            let position = scene_time - music_start_scene;
-            let frame = if position >= 0.0 && position < music.length() as f64 {
-                music.sample(position as f32).unwrap_or_default()
-            } else {
-                Default::default()
-            };
-            encoded.extend_from_slice(&(frame.0 * volume_music).to_le_bytes());
-            encoded.extend_from_slice(&(frame.1 * volume_music).to_le_bytes());
-            if encoded.len() >= AUDIO_WRITE_CHUNK_BYTES {
-                writer.write_all(&encoded)?;
-                encoded.clear();
+        let write_music_audio = |start_frame: u64, end_frame: u64| -> Result<NamedTempFile> {
+            let scene_start = start_frame as f64 / fps as f64;
+            let duration = (end_frame - start_frame) as f64 / fps as f64;
+            let sample_count = (duration * sample_rate as f64).round() as usize;
+            let audio = NamedTempFile::new()?;
+            let mut writer = BufWriter::new(audio.as_file());
+            let mut encoded = Vec::with_capacity(AUDIO_WRITE_CHUNK_BYTES);
+            for sample_index in 0..sample_count {
+                let scene_time = scene_start + sample_index as f64 / sample_rate as f64;
+                let position = scene_time - music_start_scene;
+                let frame = if position >= 0.0 && position < music.length() as f64 {
+                    music.sample(position as f32).unwrap_or_default()
+                } else {
+                    Default::default()
+                };
+                encoded.extend_from_slice(&(frame.0 * volume_music).to_le_bytes());
+                encoded.extend_from_slice(&(frame.1 * volume_music).to_le_bytes());
+                if encoded.len() >= AUDIO_WRITE_CHUNK_BYTES {
+                    writer.write_all(&encoded)?;
+                    encoded.clear();
+                }
             }
+            if !encoded.is_empty() {
+                writer.write_all(&encoded)?;
+            }
+            writer.flush()?;
+            drop(writer);
+            Ok(audio)
+        };
+        if resident {
+            for (start_frame, end_frame) in &resident_frame_ranges {
+                resident_audio_files.push(write_music_audio(*start_frame, *end_frame)?);
+            }
+        } else {
+            let (start_frame, end_frame) = plan.segment_frame_range(fps)?;
+            bounded_audio_file = Some(write_music_audio(start_frame, end_frame)?);
         }
-        if !encoded.is_empty() {
-            writer.write_all(&encoded)?;
-        }
-        writer.flush()?;
-        drop(writer);
-        bounded_audio_file = Some(audio);
     }
 
     let mut sinks = Vec::new();
@@ -546,10 +601,15 @@ pub async fn main() -> Result<()> {
         } else {
             vec![&output_path]
         };
-        for output in output_paths {
+        for (sink_index, output) in output_paths.into_iter().enumerate() {
             let frame_png = !resident
                 && plan.mode == PreviewMode::Frame
                 && output.extension().and_then(|it| it.to_str()).is_some_and(|it| it.eq_ignore_ascii_case("png"));
+            let audio = if resident {
+                resident_audio_files.get(sink_index)
+            } else {
+                bounded_audio_file.as_ref()
+            };
             let mut command = cmd_hidden(&ffmpeg);
             command.args([
                 "-y", "-f", "rawvideo", "-c:v", "rawvideo", "-pix_fmt", "rgba",
@@ -557,7 +617,7 @@ pub async fn main() -> Result<()> {
             ]);
             if frame_png {
                 command.args(["-frames:v", "1", "-vf", "vflip", "-f", "image2"]);
-            } else if let Some(audio) = bounded_audio_file.as_ref() {
+            } else if let Some(audio) = audio {
                 command.args([
                     "-f", "f32le", "-ar", "44100", "-ac", "2", "-i",
                     audio.path().to_str().context("audio path is not UTF-8")?,
@@ -578,7 +638,7 @@ pub async fn main() -> Result<()> {
                 .spawn()
                 .with_context(|| tl!("run-ffmpeg-failed"))?;
             sinks.push(VideoSink {
-                input: child.stdin.take().unwrap(),
+                input: Some(child.stdin.take().unwrap()),
                 child,
             });
         }
@@ -610,7 +670,7 @@ pub async fn main() -> Result<()> {
             .spawn()
             .with_context(|| tl!("run-ffmpeg-failed"))?;
         sinks.push(VideoSink {
-            input: child.stdin.take().unwrap(),
+            input: Some(child.stdin.take().unwrap()),
             child,
         });
     }
@@ -627,21 +687,6 @@ pub async fn main() -> Result<()> {
         Some(plan.segment_frame_range(fps)?)
     } else {
         None
-    };
-    let resident_frame_ranges = if resident {
-        params
-            .config
-            .resident_windows
-            .iter()
-            .map(|window| {
-                (
-                    (window.start_s * fps as f64).ceil() as u64,
-                    (window.end_s * fps as f64).ceil() as u64,
-                )
-            })
-            .collect::<Vec<_>>()
-    } else {
-        Vec::new()
     };
     let output_frames = if resident {
         resident_frame_ranges
@@ -695,6 +740,8 @@ pub async fn main() -> Result<()> {
             }
             sinks[0]
                 .input
+                .as_mut()
+                .context("FFmpeg stdin unavailable")?
                 .write_all(&std::slice::from_raw_parts(src as *const u8, byte_size))?;
             glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
         }
@@ -763,12 +810,20 @@ pub async fn main() -> Result<()> {
                 if resident {
                     for (sink_index, (start_frame, end_frame)) in resident_frame_ranges.iter().enumerate() {
                         if frame >= *start_frame && frame < *end_frame {
-                            sinks[sink_index].input.write_all(rgba)?;
+                            sinks[sink_index]
+                                .input
+                                .as_mut()
+                                .context("FFmpeg stdin unavailable")?
+                                .write_all(rgba)?;
                             send(IPCEvent::Frame);
                         }
                     }
                 } else {
-                    sinks[0].input.write_all(rgba)?;
+                    sinks[0]
+                        .input
+                        .as_mut()
+                        .context("FFmpeg stdin unavailable")?
+                        .write_all(rgba)?;
                     send(IPCEvent::Frame);
                 }
                 if let Some(start) = io_start {
@@ -787,9 +842,9 @@ pub async fn main() -> Result<()> {
     }
     let frame_loop_elapsed = frame_loop_start.map(|start| start.elapsed().as_secs_f64());
     let encode_wait_start = profile.then(Instant::now);
-    for VideoSink { input, mut child } in sinks {
-        drop(input);
-        if !child.wait()?.success() {
+    for mut sink in sinks {
+        drop(sink.input.take());
+        if !sink.child.wait()?.success() {
             bail!("FFmpeg video encode exited unsuccessfully")
         }
     }
