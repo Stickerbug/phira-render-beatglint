@@ -1,0 +1,20 @@
+# Third-party source and license notices
+
+This repository contains a source workbench and a Tauri-free renderer derived
+from the following upstream components. Their original copyright and license
+terms remain in force.
+
+| Component | Pinned/source location | License | Notice |
+|---|---|---|---|
+| Phira / `prpr` | `upstream/phira`, TeamFlos/phira commit `0020dc45914a07637ea74a11c8a030f3fa3f9d43` | GPL-3.0-only | See `LICENSE` and `upstream/phira/LICENSE`. |
+| Original `phira-render` source | `upstream/phira-render` | Apache-2.0 | See `LICENSES/Apache-2.0.txt` and `upstream/phira-render/LICENSE`. Modified renderer files retain the upstream attribution. |
+| `macroquad` snapshot | `upstream/macroquad`, pinned source provenance | MIT OR Apache-2.0 | See `LICENSES/MIT.txt` and `LICENSES/Apache-2.0-macroquad.txt`. |
+| `prpr-avc` snapshot | `upstream/phira/prpr-avc` | Must be confirmed against the pinned upstream repository before public release | Do not remove or replace upstream headers; the public-release checklist blocks until this is confirmed. |
+| Other Cargo dependencies | `upstream/*/Cargo.toml`, lockfiles | Their respective package licenses | A release SBOM/license report must be generated from the locked dependency graph. |
+
+The root GPL-3.0-only notice applies to BeatGlint's new and modified source as
+an independently copyrightable contribution and to the combined distribution
+where GPL compatibility permits it. It does not erase or relicense separable
+upstream Apache, MIT, or other dependency material. User-provided skins,
+charts, audio, illustrations, AppImages, migration archives, and rendered
+artifacts are intentionally excluded from this repository.

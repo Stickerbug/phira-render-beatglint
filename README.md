@@ -28,6 +28,13 @@ evidence and [`docs/render-modes.md`](docs/render-modes.md) for the mode
 contracts. Build provenance is recorded in
 [`provenance/commit-provenance.json`](provenance/commit-provenance.json).
 
+BeatGlint additions and modifications are intended for GPL-3.0-only release;
+see [`LICENSE`](LICENSE). Vendored upstream components retain their original
+Apache/MIT/GPL terms in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+Before changing this repository to public, complete
+[`PUBLIC-RELEASE-CHECKLIST.md`](PUBLIC-RELEASE-CHECKLIST.md), especially the
+`prpr-avc` license confirmation and locked dependency SBOM.
+
 After a build, the recorded smoke contract can be checked without rendering:
 
 ```text
