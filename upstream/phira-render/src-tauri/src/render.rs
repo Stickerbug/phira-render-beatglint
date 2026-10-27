@@ -581,6 +581,8 @@ pub async fn main() -> Result<()> {
     let frame_loop_start = profile.then(Instant::now);
     let mut update_render_s = 0.0;
     let mut readback_write_s = 0.0;
+    let mut readback_gl_s = 0.0;
+    let mut readback_io_s = 0.0;
 
     let emit_pbo = |pbo: GLuint, input: &mut dyn Write| -> Result<()> {
         unsafe {
@@ -648,9 +650,17 @@ pub async fn main() -> Result<()> {
                     use miniquad::gl::*;
                     let tex = mst.output().texture.raw_miniquad_texture_handle();
                     glBindFramebuffer(GL_READ_FRAMEBUFFER, internal_id(mst.output()));
+                    let gl_read_start = profile.then(Instant::now);
                     glReadPixels(0, 0, tex.width as _, tex.height as _, GL_RGBA, GL_UNSIGNED_BYTE, rgba.as_mut_ptr() as *mut _);
+                    if let Some(start) = gl_read_start {
+                        readback_gl_s += start.elapsed().as_secs_f64();
+                    }
                 }
+                let io_start = profile.then(Instant::now);
                 input.write_all(rgba)?;
+                if let Some(start) = io_start {
+                    readback_io_s += start.elapsed().as_secs_f64();
+                }
                 send(IPCEvent::Frame);
             }
         }
@@ -679,7 +689,7 @@ pub async fn main() -> Result<()> {
 
     if let (Some(frame_loop_elapsed), Some(encode_wait_start)) = (frame_loop_elapsed, encode_wait_start) {
         eprintln!(
-            "{{\"frame_loop_s\":{frame_loop_elapsed:.9},\"update_render_s\":{update_render_s:.9},\"readback_write_s\":{readback_write_s:.9},\"encode_wait_s\":{:.9},\"frames\":{frames},\"resolution\":[{vw},{vh}],\"fps\":{fps}}}",
+            "{{\"frame_loop_s\":{frame_loop_elapsed:.9},\"update_render_s\":{update_render_s:.9},\"readback_write_s\":{readback_write_s:.9},\"readback_gl_s\":{readback_gl_s:.9},\"readback_io_s\":{readback_io_s:.9},\"encode_wait_s\":{:.9},\"frames\":{frames},\"resolution\":[{vw},{vh}],\"fps\":{fps}}}",
             encode_wait_start.elapsed().as_secs_f64()
         );
     }
