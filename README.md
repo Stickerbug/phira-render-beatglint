@@ -1,46 +1,38 @@
-# phira-render-beatglint
+# BeatGlint Phira 优化渲染器
 
-Private BeatGlint renderer workbench for faithful Phira replay and bounded
-frame/segment previews.
+这是一个面向 BeatGlint 的 Phira 渲染器优化版，采用 GPL-3.0-only 发布。项目保留真实 Phira 的谱面、判定线和几何渲染路径，并增加 Tauri-free 的 headless 单帧与短片段输出。
 
-The existing full-song Phira AppImage, with the high-fidelity v6.4 skin, is
-still the visual and gameplay reference. This repository is an isolated
-optimization boundary: it does not replace that reference and it does not
-contain charts, audio, skins, models, migration archives or rendered videos.
-Those inputs remain private and are referenced by SHA-256 in manifests.
+当前支持：
 
-The `work/headless-frame-segment` branch contains the first buildable
-Tauri-free diagnostic profile. It reuses Phira chart and line rendering and
-supports a single PNG/frame or a bounded segment. Segment audio is opt-in
-`audio_mode=music-only` and contains source music only; the default remains
-silent. Bounded requests replay deterministically from time zero; they do not
-yet seek through a saved scene state. Video backgrounds, full-faithful audio
-mixing and state checkpointing therefore remain on the existing AppImage path.
+- 单帧 PNG 或 MP4；
+- 按视频帧网格输出 bounded segment；
+- 显式 replay/state/audio 模式；
+- 可选的 source-music-only segment 音频；
+- 分块 full 音频混音和可复现的 manifest 校验；
+- `release-fast` 性能对照构建。
 
-The default release profile remains the reproducible baseline. An explicit
-`release-fast` profile is available for benchmark comparisons (`opt-level=3`,
-thin LTO, one codegen unit) and is promoted only when its output hash matches
-the baseline for the requested mode.
+当前 headless profile 从时间零开始固定帧回放，尚未实现随机状态跳转、checkpoint 或 resident worker。视频背景、完整粒子/命中特效和 full-faithful 视觉验收仍应使用完整 Phira/AppImage 参考路径。这个仓库不包含谱面、音频、曲绘、皮肤、AppImage、模型、迁移包或渲染视频；请自行准备有权使用的输入。
 
-The branch is pushed to the private GitHub repository
-`Stickerbug/phira-render-beatglint`. See [`STATUS.md`](STATUS.md) for current
-evidence and [`docs/render-modes.md`](docs/render-modes.md) for the mode
-contracts. Build provenance is recorded in
-[`provenance/commit-provenance.json`](provenance/commit-provenance.json).
+## 快速开始
 
-BeatGlint additions and modifications are intended for GPL-3.0-only release;
-see [`LICENSE`](LICENSE). Vendored upstream components retain their original
-Apache/MIT/GPL terms in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
-Before changing this repository to public, complete
-[`PUBLIC-RELEASE-CHECKLIST.md`](PUBLIC-RELEASE-CHECKLIST.md), especially the
-`prpr-avc` license confirmation and locked dependency SBOM.
+环境要求：Linux、Rust stable、FFmpeg、可用的 Xorg/Mesa 离屏显示，以及合法的 Phira 资源目录。
 
-After a build, the recorded smoke contract can be checked without rendering:
+```bash
+git clone https://github.com/Stickerbug/phira-render-beatglint.git
+cd phira-render-beatglint
 
-```text
-python tools/verify_headless_smoke.py \
-  fixtures/manifests/headless-smoke-20261027.json \
-  --renderer-binary upstream/headless-render/target/release/phira-render-headless
+git checkout public/gpl-release-20261027
+
+export RUSTUP_HOME="$PWD/.rustup"
+export CARGO_HOME="$PWD/.cargo"
+export PATH="$CARGO_HOME/bin:$PATH"
+
+cargo test --manifest-path upstream/headless-render/Cargo.toml
+cargo build --release --manifest-path upstream/headless-render/Cargo.toml
 ```
 
-中文构建、运行和公开发布方法见 [`docs/使用说明-zh.md`](docs/使用说明-zh.md)。
+完整中文说明见 [`docs/使用说明-zh.md`](docs/使用说明-zh.md)；公开发布和许可证检查见 [`PUBLIC-RELEASE-CHECKLIST.md`](PUBLIC-RELEASE-CHECKLIST.md)。
+
+## 许可证
+
+BeatGlint 新增和修改的代码按 GPL-3.0-only 发布，完整文本见 [`LICENSE`](LICENSE)。仓库中的 Phira、原始 phira-render、macroquad 和其他依赖仍保留各自的上游许可证与版权声明，详见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) 和 [`LICENSES/`](LICENSES/)。

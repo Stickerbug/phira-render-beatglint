@@ -1,3 +1,5 @@
+中文说明：[`README.zh-CN.md`](README.zh-CN.md)。
+
 # Headless renderer prototype
 
 This crate is the first build boundary for the dedicated renderer. It reuses

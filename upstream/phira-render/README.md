@@ -1,3 +1,5 @@
+中文说明：[`README.zh-CN.md`](README.zh-CN.md)。
+
 
 # phira-render
 
