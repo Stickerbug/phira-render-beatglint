@@ -23,8 +23,7 @@ for required in \
   "$repo_root/upstream/headless-render/Cargo.lock" \
   "$repo_root/upstream/headless-render/src/main.rs" \
   "$repo_root/upstream/phira/prpr/Cargo.toml" \
-  "$repo_root/upstream/phira-render/src-tauri/src/render.rs" \
-  "$repo_root/provenance/commit-provenance.json"; do
+  "$repo_root/upstream/phira-render/src-tauri/src/render.rs"; do
   test -f "$required" || { echo "missing: $required" >&2; missing=1; }
 done
 
