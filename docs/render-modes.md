@@ -9,7 +9,7 @@ frame cannot be mistaken for a faithful gameplay render.
 | `full-faithful` | Existing full-song Phira replay | Golden reference (AppImage) |
 | `frame-replay` | One PNG or one-frame MP4 at a selected time | Implemented as deterministic replay from t=0; no checkpoint |
 | `segment-replay` | Bounded no-audio MP4 on the video frame grid | Implemented; replay from t=0, video backgrounds omitted |
-| `resident-worker` | Ordered windows in one loaded scene/process | Experimental opt-in; bounded silent replay only |
+| `resident-worker` | Ordered windows in one loaded scene/process | Recommended preview path; bounded silent replay only |
 
 Every output manifest must record renderer commit, binary SHA, skin SHA,
 chart/audio input SHAs, mode, state mode, time window, warmup, frame rate,
@@ -22,8 +22,10 @@ FFmpeg sink, and keeps the ordinary two-line stdin protocol. The second
 output-path line is still required for protocol compatibility and is ignored
 for this mode. Windows must be non-overlapping and use `renderMode=full`,
 `stateMode=replay`, `audioMode=none`. This is an ordered throughput
-optimization, not random seeking or a state checkpoint; it remains opt-in
-until more charts and full-faithful audio/video parity are verified.
+optimization, not random seeking or a state checkpoint. It is the recommended
+preview path when multiple windows are requested; full-faithful audio/video
+parity and final Phira visual review remain on the complete renderer/AppImage
+path.
 
 The frame protocol rounds a requested frame to the nearest video frame for
 single-frame output. Segment windows use a half-open `[ceil(start·fps),

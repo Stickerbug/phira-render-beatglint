@@ -10,7 +10,7 @@
 - 可选的 source-music-only segment 音频；
 - 分块 full 音频混音和可复现的 manifest 校验；
 - `release-fast` 性能对照构建。
-- 实验性的 `residentWindows` 顺序窗口输出，可在一次场景回放中生成多个静音 bounded 窗口。
+- 推荐的 `residentWindows` 顺序窗口输出，可在一次场景回放中生成多个静音 bounded 窗口。
 
 性能前后数据、未测候选和复测规则见 [`docs/性能对比-20261027.md`](docs/性能对比-20261027.md)。
 
