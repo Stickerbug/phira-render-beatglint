@@ -423,6 +423,8 @@ pub async fn main() -> Result<()> {
         let sample_count = (duration * sample_rate as f64).round() as usize;
         let audio = NamedTempFile::new()?;
         let mut writer = BufWriter::new(audio.as_file());
+        const AUDIO_WRITE_CHUNK_BYTES: usize = 64 * 1024;
+        let mut encoded = Vec::with_capacity(AUDIO_WRITE_CHUNK_BYTES);
         for sample_index in 0..sample_count {
             let scene_time = scene_start + sample_index as f64 / sample_rate as f64;
             let position = scene_time - music_start_scene;
@@ -431,8 +433,15 @@ pub async fn main() -> Result<()> {
             } else {
                 Default::default()
             };
-            writer.write_all(&(frame.0 * volume_music).to_le_bytes())?;
-            writer.write_all(&(frame.1 * volume_music).to_le_bytes())?;
+            encoded.extend_from_slice(&(frame.0 * volume_music).to_le_bytes());
+            encoded.extend_from_slice(&(frame.1 * volume_music).to_le_bytes());
+            if encoded.len() >= AUDIO_WRITE_CHUNK_BYTES {
+                writer.write_all(&encoded)?;
+                encoded.clear();
+            }
+        }
+        if !encoded.is_empty() {
+            writer.write_all(&encoded)?;
         }
         writer.flush()?;
         drop(writer);
@@ -509,10 +518,18 @@ pub async fn main() -> Result<()> {
     } else {
         (video_length / frame_delta as f64).ceil() as u64
     };
+    let segment_frame_range = if plan.mode == PreviewMode::Segment {
+        Some(plan.segment_frame_range(fps)?)
+    } else {
+        None
+    };
     let output_frames = match plan.mode {
         PreviewMode::Full => frames,
         PreviewMode::Frame => 1,
-        PreviewMode::Segment => plan.output_frame_count(fps)?,
+        PreviewMode::Segment => {
+            let (start_frame, end_frame) = segment_frame_range.expect("segment frame range");
+            end_frame - start_frame
+        }
     };
 
     const N: usize = 3;
@@ -581,7 +598,7 @@ pub async fn main() -> Result<()> {
                     frame == target_frame
                 }
                 PreviewMode::Segment => {
-                    let (start_frame, end_frame) = plan.segment_frame_range(fps)?;
+                    let (start_frame, end_frame) = segment_frame_range.expect("segment frame range");
                     frame >= start_frame && frame < end_frame
                 }
                 PreviewMode::Full => false,
