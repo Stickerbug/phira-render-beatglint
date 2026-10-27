@@ -99,15 +99,23 @@ impl Video {
             VIDEO_BUFFERS.with(|it| {
                 let mut buf = it.borrow_mut();
                 while self.next_frame <= that_frame {
-                    buf[0].clear();
-                    buf[1].clear();
-                    buf[2].clear();
+                    // Intermediate decoded frames are dropped when the render loop lags.
+                    // Avoid copying their planes into CPU buffers; only the frame that will
+                    // actually be uploaded needs a copy.
+                    let copy_frame = self.next_frame == that_frame;
+                    if copy_frame {
+                        buf[0].clear();
+                        buf[1].clear();
+                        buf[2].clear();
+                    }
                     if self
                         .video
                         .with_frame(|frame| {
-                            buf[0].extend_from_slice(frame.data(0));
-                            buf[1].extend_from_slice(frame.data_half(1));
-                            buf[2].extend_from_slice(frame.data_half(2));
+                            if copy_frame {
+                                buf[0].extend_from_slice(frame.data(0));
+                                buf[1].extend_from_slice(frame.data_half(1));
+                                buf[2].extend_from_slice(frame.data_half(2));
+                            }
                         })
                         .is_none()
                     {

@@ -85,7 +85,11 @@ bounded 配置字段示例：
 }
 ```
 
-实验性的顺序窗口模式可在同一个 `config` 中加入 `residentWindows`：
+## Resident 预览主模式（顺序窗口）
+
+需要在一次场景回放中导出多个预览窗口时，将 `residentWindows` 作为预览请求的主输出列表。它复用一个已加载的场景和 GL context，按时间顺序把每个窗口写入独立的 FFmpeg 输出；因此适合批量预览和审查窗口，避免为每个窗口重复启动 renderer。
+
+请求仍通过标准输入的两行协议发送：第一行是完整 JSON 请求，第二行是兼容旧调用方的占位输出路径。设置 `residentWindows` 后，第二行会被忽略；每个窗口的 `output` 才是实际产物路径。
 
 ```json
 {
@@ -99,7 +103,18 @@ bounded 配置字段示例：
 }
 ```
 
-窗口必须按时间递增且不重叠。渲染器只回放一次到最大结束时间，再把帧分别写入各个输出；第二行输出路径仍需提供，但在此模式会被忽略。该模式只适合无音频的 bounded 诊断输出，不能随机跳转，也不替代完整 Phira 的音频、视频和最终视觉验收。
+字段和约束如下：
+
+| 字段 | 类型 | 要求 |
+| --- | --- | --- |
+| `renderMode` | 字符串 | 必须为 `full`；resident 自己决定要输出哪些窗口 |
+| `stateMode` | 字符串 | 必须为 `replay`；从时间零按固定帧步长推进 |
+| `audioMode` | 字符串 | 必须为 `none`；每个窗口为静音 MP4 |
+| `residentWindows` | 数组 | 至少一个窗口，按 `startS` 递增且不能重叠 |
+| `startS` / `endS` | 有限非负数 | 必须满足 `0 <= startS < endS`，单位为 renderer scene 秒 |
+| `output` | 路径字符串 | 每个窗口唯一的 MP4 路径；父目录需预先存在 |
+
+渲染器只回放一次到最大 `endS`，窗口采用半开区间 `[ceil(startS*fps), ceil(endS*fps))` 分配帧。相邻窗口可以使用相同边界（例如 `40..41` 和 `41..42`），不会重复写入边界帧。窗口不是随机跳转或 checkpoint；视频背景、完整粒子/命中特效和完整音频仍需用完整 Phira/AppImage 验收。窗口的时间、顺序、重叠和路径字段会在启动渲染前校验；输出父目录请预先创建，不应把部分输出当作成功结果。
 
 `startS` 和 `endS` 是 **renderer video/scene time**，不是谱面 nominal chart time。将官谱标注时间转换为 renderer 时间时使用：
 

@@ -20,6 +20,7 @@ use sasa::AudioClip;
 use serde::{Deserialize, Serialize};
 use std::{
     cell::RefCell,
+    collections::HashSet,
     io::{BufRead, BufWriter, Write},
     ops::DerefMut,
     path::PathBuf,
@@ -216,6 +217,9 @@ pub async fn main() -> Result<()> {
     stdin.read_line(&mut line)?;
     let params: RenderParams = serde_json::from_str(line.trim())?;
     let resident = !params.config.resident_windows.is_empty();
+    if params.config.fps == 0 {
+        bail!("render fps must be positive")
+    }
     let plan = RenderPlan {
         mode: params.config.render_mode,
         state_mode: params.config.state_mode,
@@ -233,13 +237,23 @@ pub async fn main() -> Result<()> {
             bail!("resident windows require full/replay configuration with no bounded audio")
         }
         let mut previous_end = 0.0;
+        let mut outputs = HashSet::new();
         for window in &params.config.resident_windows {
             if !window.start_s.is_finite()
                 || !window.end_s.is_finite()
                 || window.start_s < previous_end
                 || window.end_s <= window.start_s
+                || window.output.as_os_str().is_empty()
             {
-                bail!("resident windows must be finite, ordered, and non-overlapping")
+                bail!("resident windows must be finite, ordered, non-overlapping, and have an output path")
+            }
+            let start_frame = (window.start_s * params.config.fps as f64).ceil() as u64;
+            let end_frame = (window.end_s * params.config.fps as f64).ceil() as u64;
+            if end_frame <= start_frame {
+                bail!("resident window contains no frame on the requested fps grid")
+            }
+            if !outputs.insert(window.output.clone()) {
+                bail!("resident windows must use distinct output paths")
             }
             previous_end = window.end_s;
         }
