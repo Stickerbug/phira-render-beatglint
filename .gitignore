@@ -11,5 +11,6 @@
 *.jpg
 *.tar.gz
 /fixtures/outputs/
+tools/__pycache__/
 .DS_Store
 /upstream/headless-render/target/
