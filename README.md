@@ -42,3 +42,5 @@ python tools/verify_headless_smoke.py \
   fixtures/manifests/headless-smoke-20261027.json \
   --renderer-binary upstream/headless-render/target/release/phira-render-headless
 ```
+
+中文构建、运行和公开发布方法见 [`docs/使用说明-zh.md`](docs/使用说明-zh.md)。
