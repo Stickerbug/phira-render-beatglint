@@ -107,13 +107,17 @@ python tools/render_resident_windows.py \
 
 ```json
 {
-  "renderMode": "full",
-  "stateMode": "replay",
-  "audioMode": "none",
-  "residentWindows": [
-    {"startS": 40.0, "endS": 41.0, "output": "/tmp/window-a.mp4"},
-    {"startS": 41.0, "endS": 42.0, "output": "/tmp/window-b.mp4"}
-  ]
+  "path": "/path/to/chart.pez",
+  "info": {"name": "example", "id": "example"},
+  "config": {
+    "renderMode": "full",
+    "stateMode": "replay",
+    "audioMode": "none",
+    "residentWindows": [
+      {"startS": 40.0, "endS": 41.0, "output": "/tmp/window-a.mp4"},
+      {"startS": 41.0, "endS": 42.0, "output": "/tmp/window-b.mp4"}
+    ]
+  }
 }
 ```
 
@@ -121,10 +125,10 @@ python tools/render_resident_windows.py \
 
 | 字段 | 类型 | 要求 |
 | --- | --- | --- |
-| `renderMode` | 字符串 | 必须为 `full`；resident 自己决定要输出哪些窗口 |
-| `stateMode` | 字符串 | 必须为 `replay`；从时间零按固定帧步长推进 |
-| `audioMode` | 字符串 | 必须为 `none`；每个窗口为静音 MP4 |
-| `residentWindows` | 数组 | 至少一个窗口，按 `startS` 递增且不能重叠 |
+| `config.renderMode` | 字符串 | 必须为 `full`；resident 自己决定要输出哪些窗口 |
+| `config.stateMode` | 字符串 | 必须为 `replay`；从时间零按固定帧步长推进 |
+| `config.audioMode` | 字符串 | 必须为 `none`；每个窗口为静音 MP4 |
+| `config.residentWindows` | 数组 | 至少一个窗口，按 `startS` 递增且不能重叠 |
 | `startS` / `endS` | 有限非负数 | 必须满足 `0 <= startS < endS`，单位为 renderer scene 秒 |
 | `output` | 路径字符串 | 每个窗口唯一的 MP4 路径；父目录需预先存在 |
 
