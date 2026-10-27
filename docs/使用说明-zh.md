@@ -170,14 +170,3 @@ python tools/compare_render_artifacts.py \
 ```
 
 该工具比较帧网格、视频流、逐帧 `framemd5` 和可用时的解码 PCM。两个 bounded 输出相同，只能说明两个 bounded 输出相同，不能证明与完整 Phira 或官谱视觉 parity。
-
-## 公开发布前检查
-
-1. 确认所有 vendored 源码的许可证和版权声明已经保留，并补齐第三方许可证目录。
-2. 删除或替换只对私有工作区有效的路径、私有输入和私有 artifact 引用。
-3. 重新生成不含私有资源的 smoke manifest，并检查二进制、源码和输入 SHA。
-4. 在干净环境执行 `cargo check`、`cargo test`、release build 和 manifest verifier。
-5. 明确标注 headless profile 的限制，不把它描述成完整 Phira parity 或随机 seek 实现。
-6. 公开仓库前再确认主仓库的用户资源和网站部署目录没有被复制进来。
-
-许可证应以源码审计结果为准。若仓库最终采用 GPL-3.0，应在根目录放置完整 GPL-3.0 文本并保留各上游组件原有许可证和版权声明；不能用一个新的许可证文件覆盖第三方原有声明。
