@@ -577,6 +577,9 @@ pub async fn main() -> Result<()> {
 
     send(IPCEvent::StartRender(output_frames));
 
+    let profile = std::env::var_os("BEATGLINT_PROFILE").is_some();
+    let frame_loop_start = profile.then(Instant::now);
+
     let emit_pbo = |pbo: GLuint, input: &mut dyn Write| -> Result<()> {
         unsafe {
             use miniquad::gl::*;
@@ -650,6 +653,8 @@ pub async fn main() -> Result<()> {
             emit_pbo(pbos[pending as usize % N], &mut input)?;
         }
     }
+    let frame_loop_elapsed = frame_loop_start.map(|start| start.elapsed().as_secs_f64());
+    let encode_wait_start = profile.then(Instant::now);
     drop(input);
     if !bounded {
         unsafe {
@@ -660,6 +665,13 @@ pub async fn main() -> Result<()> {
     }
     if !proc.wait()?.success() {
         bail!("FFmpeg video encode exited unsuccessfully")
+    }
+
+    if let (Some(frame_loop_elapsed), Some(encode_wait_start)) = (frame_loop_elapsed, encode_wait_start) {
+        eprintln!(
+            "{{\"frame_loop_s\":{frame_loop_elapsed:.9},\"encode_wait_s\":{:.9},\"frames\":{frames},\"resolution\":[{vw},{vh}],\"fps\":{fps}}}",
+            encode_wait_start.elapsed().as_secs_f64()
+        );
     }
 
     send(IPCEvent::Done(render_start_time.elapsed().as_secs_f64()));
