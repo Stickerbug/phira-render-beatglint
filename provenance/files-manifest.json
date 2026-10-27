@@ -258,22 +258,6 @@
       "blob_sha": "3e30844f90946000d6b3528a8c3264fdcda04e05",
       "file_sha256": "620228c7e47b81d2b0958c0db9960cc311c4d30b101789bdf3add8c704910867",
       "bytes": 11168
-    },
-    {
-      "path": "macroquad/src/lib.rs",
-      "blob_sha": "5aa72d5fd54bd9887039c6b08c76c3487108f2a0",
-      "file_sha256": "79e0fc11f3c4a295ad7c2ef1ac9a7764884454cb1292ff2d508191fff5be9d8d",
-      "bytes": 21053,
-      "repository": "Mivik/prpr-macroquad",
-      "commit": "19119d6e3ec231502f6d64ff077114ffe1fcb04a"
-    },
-    {
-      "path": "macroquad/Cargo.toml",
-      "blob_sha": "69d27e3f8c593b7e068feb4c1ee58ed4b7731db2",
-      "file_sha256": "6089b6b0b03cbc32cdcce61a5ceb099563d23a2f473c473585c0c75d5653984d",
-      "bytes": 1636,
-      "repository": "Mivik/prpr-macroquad",
-      "commit": "19119d6e3ec231502f6d64ff077114ffe1fcb04a"
     }
   ]
 }

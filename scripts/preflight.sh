@@ -19,8 +19,10 @@ else
 fi
 
 for required in \
-  "$repo_root/upstream/phira-render/src-tauri/Cargo.toml" \
-  "$repo_root/upstream/phira-render/src-tauri/Cargo.lock" \
+  "$repo_root/upstream/headless-render/Cargo.toml" \
+  "$repo_root/upstream/headless-render/Cargo.lock" \
+  "$repo_root/upstream/headless-render/src/main.rs" \
+  "$repo_root/upstream/phira/prpr/Cargo.toml" \
   "$repo_root/upstream/phira-render/src-tauri/src/render.rs" \
   "$repo_root/provenance/commit-provenance.json"; do
   test -f "$required" || { echo "missing: $required" >&2; missing=1; }
@@ -31,6 +33,6 @@ if [[ "${missing:-0}" != 0 ]]; then
 fi
 
 cargo metadata \
-  --manifest-path "$repo_root/upstream/phira-render/src-tauri/Cargo.toml" \
+  --manifest-path "$repo_root/upstream/headless-render/Cargo.toml" \
   --no-deps --format-version 1 >/dev/null
 echo 'metadata: OK'

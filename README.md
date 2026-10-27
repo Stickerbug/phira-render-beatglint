@@ -21,7 +21,7 @@
 git clone https://github.com/Stickerbug/phira-render-beatglint.git
 cd phira-render-beatglint
 
-git checkout public/gpl-release-20261027
+git checkout main
 
 export RUSTUP_HOME="$PWD/.rustup"
 export CARGO_HOME="$PWD/.cargo"
@@ -35,4 +35,4 @@ cargo build --release --manifest-path upstream/headless-render/Cargo.toml
 
 ## 许可证
 
-BeatGlint 新增和修改的代码按 GPL-3.0-only 发布，完整文本见 [`LICENSE`](LICENSE)。仓库中的 Phira、原始 phira-render、macroquad 和其他依赖仍保留各自的上游许可证与版权声明，详见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) 和 [`LICENSES/`](LICENSES/)。
+BeatGlint 新增和修改的代码按 GPL-3.0-only 发布，完整文本见 [`LICENSE`](LICENSE)。仓库中的 Phira、原始 phira-render、锁定的 macroquad 依赖和其他依赖仍保留各自的上游许可证与版权声明，详见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) 和 [`LICENSES/`](LICENSES/)。

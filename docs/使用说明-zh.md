@@ -28,7 +28,7 @@ export ALSA_CONFIG_PATH=/path/to/alsa-null.conf
 ```bash
 git clone https://github.com/Stickerbug/phira-render-beatglint.git
 cd phira-render-beatglint
-git checkout work/headless-frame-segment
+git checkout main
 
 export RUSTUP_HOME="$PWD/.rustup"
 export CARGO_HOME="$PWD/.cargo"
@@ -97,11 +97,11 @@ python tools/convert_chart_window.py \
 
 ## 验证结果
 
-验证已有 smoke manifest，不需要重新渲染：
+验证已有 smoke manifest 不需要重新渲染。公开仓库不附带私有输入和 smoke manifest，运行时请把你自己的 manifest 路径传给工具：
 
 ```bash
 python tools/verify_headless_smoke.py \
-  fixtures/manifests/headless-smoke-20261027.json \
+  /path/to/your/headless-smoke.json \
   --renderer-binary \
   upstream/headless-render/target/release/phira-render-headless
 ```
@@ -112,7 +112,7 @@ python tools/verify_headless_smoke.py \
 python tools/compare_render_artifacts.py \
   --left /path/to/left.mp4 \
   --right /path/to/right.mp4 \
-  --manifest fixtures/manifests/headless-smoke-20261027.json \
+  --manifest /path/to/your/headless-smoke.json \
   --case-index 3
 ```
 

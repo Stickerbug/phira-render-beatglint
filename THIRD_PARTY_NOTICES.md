@@ -8,7 +8,7 @@ terms remain in force.
 |---|---|---|---|
 | Phira / `prpr` | `upstream/phira`, TeamFlos/phira commit `0020dc45914a07637ea74a11c8a030f3fa3f9d43` | GPL-3.0-only | See `LICENSE` and `upstream/phira/LICENSE`. |
 | Original `phira-render` source | `upstream/phira-render` | Apache-2.0 | See `LICENSES/Apache-2.0.txt` and `upstream/phira-render/LICENSE`. Modified renderer files retain the upstream attribution. |
-| `macroquad` snapshot | `upstream/macroquad`, pinned source provenance | MIT OR Apache-2.0 | See `LICENSES/MIT.txt` and `LICENSES/Apache-2.0-macroquad.txt`. |
+| `macroquad` | Locked Git dependency recorded in `upstream/headless-render/Cargo.lock` | MIT OR Apache-2.0 | The incomplete local source snapshot is intentionally not vendored; see `LICENSES/MIT.txt` and `LICENSES/Apache-2.0-macroquad.txt`. |
 | `prpr-avc` snapshot | `upstream/phira/prpr-avc` | GPL-3.0-only, as part of the pinned TeamFlos/phira repository | The snapshot's Cargo manifest now records the upstream GPL license; do not remove or replace upstream headers. |
 | Other Cargo dependencies | `upstream/*/Cargo.toml`, lockfiles | Their respective package licenses | A release SBOM/license report must be generated from the locked dependency graph. |
 
