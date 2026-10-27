@@ -579,6 +579,8 @@ pub async fn main() -> Result<()> {
 
     let profile = std::env::var_os("BEATGLINT_PROFILE").is_some();
     let frame_loop_start = profile.then(Instant::now);
+    let mut update_render_s = 0.0;
+    let mut readback_write_s = 0.0;
 
     let emit_pbo = |pbo: GLuint, input: &mut dyn Write| -> Result<()> {
         unsafe {
@@ -596,6 +598,7 @@ pub async fn main() -> Result<()> {
     };
 
     for frame in 0..frames {
+        let update_start = profile.then(Instant::now);
         *my_time.borrow_mut() = (frame as f32 * frame_delta).max(0.) as f64;
         gl.quad_gl.render_pass(Some(mst.output().render_pass));
         clear_background(BLACK);
@@ -605,9 +608,16 @@ pub async fn main() -> Result<()> {
         // TODO magic. can't remove this line.
         draw_rectangle(0., 0., 0., 0., Color::default());
         gl.flush();
+        if let Some(start) = update_start {
+            update_render_s += start.elapsed().as_secs_f64();
+        }
 
+        let readback_start = profile.then(Instant::now);
         if MSAA.load(Ordering::SeqCst) {
             mst.blit();
+        }
+        if let Some(start) = readback_start {
+            readback_write_s += start.elapsed().as_secs_f64();
         }
         if !bounded {
             unsafe {
@@ -669,7 +679,7 @@ pub async fn main() -> Result<()> {
 
     if let (Some(frame_loop_elapsed), Some(encode_wait_start)) = (frame_loop_elapsed, encode_wait_start) {
         eprintln!(
-            "{{\"frame_loop_s\":{frame_loop_elapsed:.9},\"encode_wait_s\":{:.9},\"frames\":{frames},\"resolution\":[{vw},{vh}],\"fps\":{fps}}}",
+            "{{\"frame_loop_s\":{frame_loop_elapsed:.9},\"update_render_s\":{update_render_s:.9},\"readback_write_s\":{readback_write_s:.9},\"encode_wait_s\":{:.9},\"frames\":{frames},\"resolution\":[{vw},{vh}],\"fps\":{fps}}}",
             encode_wait_start.elapsed().as_secs_f64()
         );
     }
