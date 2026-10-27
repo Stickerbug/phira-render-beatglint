@@ -23,7 +23,7 @@ use std::{
     io::{BufRead, BufWriter, Write},
     ops::DerefMut,
     path::PathBuf,
-    process::{Command, Stdio},
+    process::{Child, ChildStdin, Command, Stdio},
     rc::Rc,
     sync::atomic::{AtomicBool, Ordering},
     time::Instant,
@@ -88,6 +88,25 @@ pub struct RenderConfig {
     /// music-only; gameplay SFX remain reserved for the full-faithful path.
     #[serde(default)]
     audio_mode: BoundedAudioMode,
+    /// Experimental ordered-window mode. The scene is replayed once to the
+    /// largest end time and emitted frames are routed to each window sink.
+    /// It is intentionally opt-in and requires replay-compatible, silent
+    /// bounded output.
+    #[serde(default)]
+    resident_windows: Vec<ResidentWindow>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ResidentWindow {
+    start_s: f64,
+    end_s: f64,
+    output: PathBuf,
+}
+
+struct VideoSink {
+    child: Child,
+    input: ChildStdin,
 }
 
 impl RenderConfig {
@@ -196,6 +215,7 @@ pub async fn main() -> Result<()> {
     let mut line = String::new();
     stdin.read_line(&mut line)?;
     let params: RenderParams = serde_json::from_str(line.trim())?;
+    let resident = !params.config.resident_windows.is_empty();
     let plan = RenderPlan {
         mode: params.config.render_mode,
         state_mode: params.config.state_mode,
@@ -204,7 +224,26 @@ pub async fn main() -> Result<()> {
         warmup_s: params.config.warmup_s,
     }
     .validate()?;
-    let bounded = plan.mode != PreviewMode::Full;
+    let bounded = resident || plan.mode != PreviewMode::Full;
+    if resident {
+        if params.config.render_mode != PreviewMode::Full
+            || params.config.state_mode != StateMode::Replay
+            || params.config.audio_mode != BoundedAudioMode::None
+        {
+            bail!("resident windows require full/replay configuration with no bounded audio")
+        }
+        let mut previous_end = 0.0;
+        for window in &params.config.resident_windows {
+            if !window.start_s.is_finite()
+                || !window.end_s.is_finite()
+                || window.start_s < previous_end
+                || window.end_s <= window.start_s
+            {
+                bail!("resident windows must be finite, ordered, and non-overlapping")
+            }
+            previous_end = window.end_s;
+        }
+    }
     if bounded && plan.warmup_s != 0.0 {
         bail!("non-zero warmup is reserved until state checkpoints are implemented")
     }
@@ -254,7 +293,14 @@ pub async fn main() -> Result<()> {
     let volume_sfx = std::mem::take(&mut config.volume_sfx);
 
     let length = track_length - chart.offset.min(0.) as f64 + 1.;
-    let video_length = if bounded {
+    let video_length = if resident {
+        params
+            .config
+            .resident_windows
+            .iter()
+            .map(|window| window.end_s)
+            .fold(0.0, f64::max)
+    } else if bounded {
         plan.end_s.or(plan.start_s).unwrap()
     } else {
         O + length + A + params.config.ending_length
@@ -474,18 +520,30 @@ pub async fn main() -> Result<()> {
         bounded_audio_file = Some(audio);
     }
 
-    let mut proc = if bounded {
-        let frame_png = plan.mode == PreviewMode::Frame
-            && output_path.extension().and_then(|it| it.to_str()).is_some_and(|it| it.eq_ignore_ascii_case("png"));
-        let mut command = cmd_hidden(&ffmpeg);
-        command.args([
-            "-y", "-f", "rawvideo", "-c:v", "rawvideo", "-pix_fmt", "rgba",
-            "-s", &format!("{vw}x{vh}"), "-r", &fps.to_string(), "-i", "-",
-        ]);
-        if frame_png {
-            command.args(["-frames:v", "1", "-vf", "vflip", "-f", "image2"]);
+    let mut sinks = Vec::new();
+    if resident || bounded {
+        let output_paths = if resident {
+            params
+                .config
+                .resident_windows
+                .iter()
+                .map(|window| &window.output)
+                .collect::<Vec<_>>()
         } else {
-            if let Some(audio) = bounded_audio_file.as_ref() {
+            vec![&output_path]
+        };
+        for output in output_paths {
+            let frame_png = !resident
+                && plan.mode == PreviewMode::Frame
+                && output.extension().and_then(|it| it.to_str()).is_some_and(|it| it.eq_ignore_ascii_case("png"));
+            let mut command = cmd_hidden(&ffmpeg);
+            command.args([
+                "-y", "-f", "rawvideo", "-c:v", "rawvideo", "-pix_fmt", "rgba",
+                "-s", &format!("{vw}x{vh}"), "-r", &fps.to_string(), "-i", "-",
+            ]);
+            if frame_png {
+                command.args(["-frames:v", "1", "-vf", "vflip", "-f", "image2"]);
+            } else if let Some(audio) = bounded_audio_file.as_ref() {
                 command.args([
                     "-f", "f32le", "-ar", "44100", "-ac", "2", "-i",
                     audio.path().to_str().context("audio path is not UTF-8")?,
@@ -499,13 +557,17 @@ pub async fn main() -> Result<()> {
                     "-vf", "vflip", "-an", "-f", "mp4",
                 ]);
             }
+            let mut child = command
+                .arg(output)
+                .stdin(Stdio::piped())
+                .stderr(Stdio::inherit())
+                .spawn()
+                .with_context(|| tl!("run-ffmpeg-failed"))?;
+            sinks.push(VideoSink {
+                input: child.stdin.take().unwrap(),
+                child,
+            });
         }
-        command
-            .arg(output_path)
-            .stdin(Stdio::piped())
-            .stderr(Stdio::inherit())
-            .spawn()
-            .with_context(|| tl!("run-ffmpeg-failed"))?
     } else {
         let codecs = String::from_utf8(
             cmd_hidden(&ffmpeg)
@@ -524,7 +586,7 @@ pub async fn main() -> Result<()> {
             if use_cuda { "h264_nvenc" } else if has_qsv { "h264_qsv" } else if params.config.hardware_accel { bail!(tl!("no-hw-acc")); } else { "libx264" },
             params.config.bitrate,
         );
-        cmd_hidden(&ffmpeg)
+        let mut child = cmd_hidden(&ffmpeg)
             .args(args.split_whitespace())
             .arg(mixing_output.as_ref().unwrap().path())
             .args(args2.split_whitespace())
@@ -532,9 +594,12 @@ pub async fn main() -> Result<()> {
             .stdin(Stdio::piped())
             .stderr(Stdio::inherit())
             .spawn()
-            .with_context(|| tl!("run-ffmpeg-failed"))?
-    };
-    let mut input = proc.stdin.take().unwrap();
+            .with_context(|| tl!("run-ffmpeg-failed"))?;
+        sinks.push(VideoSink {
+            input: child.stdin.take().unwrap(),
+            child,
+        });
+    }
 
     let byte_size = vw as usize * vh as usize * 4;
     let mut bounded_rgba = bounded.then(|| vec![0_u8; byte_size]);
@@ -549,12 +614,34 @@ pub async fn main() -> Result<()> {
     } else {
         None
     };
-    let output_frames = match plan.mode {
-        PreviewMode::Full => frames,
-        PreviewMode::Frame => 1,
-        PreviewMode::Segment => {
-            let (start_frame, end_frame) = segment_frame_range.expect("segment frame range");
-            end_frame - start_frame
+    let resident_frame_ranges = if resident {
+        params
+            .config
+            .resident_windows
+            .iter()
+            .map(|window| {
+                (
+                    (window.start_s * fps as f64).ceil() as u64,
+                    (window.end_s * fps as f64).ceil() as u64,
+                )
+            })
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
+    let output_frames = if resident {
+        resident_frame_ranges
+            .iter()
+            .map(|(start, end)| end - start)
+            .sum()
+    } else {
+        match plan.mode {
+            PreviewMode::Full => frames,
+            PreviewMode::Frame => 1,
+            PreviewMode::Segment => {
+                let (start_frame, end_frame) = segment_frame_range.expect("segment frame range");
+                end_frame - start_frame
+            }
         }
     };
 
@@ -584,7 +671,7 @@ pub async fn main() -> Result<()> {
     let mut readback_gl_s = 0.0;
     let mut readback_io_s = 0.0;
 
-    let emit_pbo = |pbo: GLuint, input: &mut dyn Write| -> Result<()> {
+    let emit_pbo = |pbo: GLuint, sinks: &mut [VideoSink]| -> Result<()> {
         unsafe {
             use miniquad::gl::*;
             glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
@@ -592,7 +679,9 @@ pub async fn main() -> Result<()> {
             if src.is_null() {
                 bail!("failed to map completed pixel-readback buffer")
             }
-            input.write_all(&std::slice::from_raw_parts(src as *const u8, byte_size))?;
+            sinks[0]
+                .input
+                .write_all(&std::slice::from_raw_parts(src as *const u8, byte_size))?;
             glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
         }
         send(IPCEvent::Frame);
@@ -630,7 +719,7 @@ pub async fn main() -> Result<()> {
                 glReadPixels(0, 0, tex.width as _, tex.height as _, GL_RGBA, GL_UNSIGNED_BYTE, std::ptr::null_mut());
             }
             if frame + 1 >= N as u64 {
-                emit_pbo(pbos[(frame + 1) as usize % N], &mut input)?;
+                emit_pbo(pbos[(frame + 1) as usize % N], &mut sinks)?;
             }
         } else {
             let emit = match plan.mode {
@@ -642,7 +731,7 @@ pub async fn main() -> Result<()> {
                     let (start_frame, end_frame) = segment_frame_range.expect("segment frame range");
                     frame >= start_frame && frame < end_frame
                 }
-                PreviewMode::Full => false,
+                PreviewMode::Full => resident,
             };
             if emit {
                 let rgba = bounded_rgba.as_mut().expect("bounded readback buffer");
@@ -657,11 +746,20 @@ pub async fn main() -> Result<()> {
                     }
                 }
                 let io_start = profile.then(Instant::now);
-                input.write_all(rgba)?;
+                if resident {
+                    for (sink_index, (start_frame, end_frame)) in resident_frame_ranges.iter().enumerate() {
+                        if frame >= *start_frame && frame < *end_frame {
+                            sinks[sink_index].input.write_all(rgba)?;
+                            send(IPCEvent::Frame);
+                        }
+                    }
+                } else {
+                    sinks[0].input.write_all(rgba)?;
+                    send(IPCEvent::Frame);
+                }
                 if let Some(start) = io_start {
                     readback_io_s += start.elapsed().as_secs_f64();
                 }
-                send(IPCEvent::Frame);
             }
         }
     }
@@ -670,12 +768,17 @@ pub async fn main() -> Result<()> {
         // in frame order so the first and last frames are not silently lost.
         let pending_start = frames.saturating_sub((N - 1) as u64);
         for pending in pending_start..frames {
-            emit_pbo(pbos[pending as usize % N], &mut input)?;
+            emit_pbo(pbos[pending as usize % N], &mut sinks)?;
         }
     }
     let frame_loop_elapsed = frame_loop_start.map(|start| start.elapsed().as_secs_f64());
     let encode_wait_start = profile.then(Instant::now);
-    drop(input);
+    for VideoSink { input, mut child } in sinks {
+        drop(input);
+        if !child.wait()?.success() {
+            bail!("FFmpeg video encode exited unsuccessfully")
+        }
+    }
     if !bounded {
         unsafe {
             use miniquad::gl::*;
@@ -683,10 +786,6 @@ pub async fn main() -> Result<()> {
             glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
         }
     }
-    if !proc.wait()?.success() {
-        bail!("FFmpeg video encode exited unsuccessfully")
-    }
-
     if let (Some(frame_loop_elapsed), Some(encode_wait_start)) = (frame_loop_elapsed, encode_wait_start) {
         eprintln!(
             "{{\"frame_loop_s\":{frame_loop_elapsed:.9},\"update_render_s\":{update_render_s:.9},\"readback_write_s\":{readback_write_s:.9},\"readback_gl_s\":{readback_gl_s:.9},\"readback_io_s\":{readback_io_s:.9},\"encode_wait_s\":{:.9},\"frames\":{frames},\"resolution\":[{vw},{vh}],\"fps\":{fps}}}",

@@ -9,14 +9,21 @@ frame cannot be mistaken for a faithful gameplay render.
 | `full-faithful` | Existing full-song Phira replay | Golden reference (AppImage) |
 | `frame-replay` | One PNG or one-frame MP4 at a selected time | Implemented as deterministic replay from t=0; no checkpoint |
 | `segment-replay` | Bounded no-audio MP4 on the video frame grid | Implemented; replay from t=0, video backgrounds omitted |
-| `resident-worker` | Multiple windows in one cleaned process | Design target; not implemented |
+| `resident-worker` | Ordered windows in one loaded scene/process | Experimental opt-in; bounded silent replay only |
 
 Every output manifest must record renderer commit, binary SHA, skin SHA,
 chart/audio input SHAs, mode, state mode, time window, warmup, frame rate,
 and whether particles, effects, video and audio were enabled. A bounded
 request currently uses `state_mode=replay`; `warmup_s` must remain
-zero. A future checkpoint or resident worker must be introduced as a separate
-state mode and pass parity tests before it is enabled.
+zero. A resident request is supplied through `config.residentWindows`, an
+ordered array of `{startS, endS, output}` windows. The renderer replays from
+time zero once to the largest `endS`, routes each frame range to its own
+FFmpeg sink, and keeps the ordinary two-line stdin protocol. The second
+output-path line is still required for protocol compatibility and is ignored
+for this mode. Windows must be non-overlapping and use `renderMode=full`,
+`stateMode=replay`, `audioMode=none`. This is an ordered throughput
+optimization, not random seeking or a state checkpoint; it remains opt-in
+until more charts and full-faithful audio/video parity are verified.
 
 The frame protocol rounds a requested frame to the nearest video frame for
 single-frame output. Segment windows use a half-open `[ceil(start·fps),

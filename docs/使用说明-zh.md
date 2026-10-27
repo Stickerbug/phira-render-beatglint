@@ -85,6 +85,22 @@ bounded 配置字段示例：
 }
 ```
 
+实验性的顺序窗口模式可在同一个 `config` 中加入 `residentWindows`：
+
+```json
+{
+  "renderMode": "full",
+  "stateMode": "replay",
+  "audioMode": "none",
+  "residentWindows": [
+    {"startS": 40.0, "endS": 41.0, "output": "/tmp/window-a.mp4"},
+    {"startS": 41.0, "endS": 42.0, "output": "/tmp/window-b.mp4"}
+  ]
+}
+```
+
+窗口必须按时间递增且不重叠。渲染器只回放一次到最大结束时间，再把帧分别写入各个输出；第二行输出路径仍需提供，但在此模式会被忽略。该模式只适合无音频的 bounded 诊断输出，不能随机跳转，也不替代完整 Phira 的音频、视频和最终视觉验收。
+
 `startS` 和 `endS` 是 **renderer video/scene time**，不是谱面 nominal chart time。将官谱标注时间转换为 renderer 时间时使用：
 
 ```bash
