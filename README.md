@@ -10,7 +10,7 @@
 - 可选的 source-music-only segment/resident 音频；
 - 分块 full 音频混音和可复现的 manifest 校验；
 - `release-fast` 性能对照构建。
-- 推荐的 `residentWindows` 顺序窗口输出，可在一次场景回放中生成多个静音 bounded 窗口；`tools/render_resident_windows.py` 提供可重复的调用入口。
+- 推荐的 `residentWindows` 顺序窗口输出，可在一次场景回放中生成多个 bounded 窗口（可选源音乐）；`tools/render_resident_windows.py` 提供可重复的调用入口。
 
 性能样本和 resident 窗口收益见 [`docs/性能对比-20261027.md`](docs/性能对比-20261027.md)。
 

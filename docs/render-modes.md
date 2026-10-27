@@ -9,7 +9,7 @@ frame cannot be mistaken for a faithful gameplay render.
 | `full-faithful` | Existing full-song Phira replay | Golden reference (AppImage) |
 | `frame-replay` | One PNG or one-frame MP4 at a selected time | Implemented as deterministic replay from t=0; no checkpoint |
 | `segment-replay` | Bounded no-audio MP4 on the video frame grid | Implemented; replay from t=0, video backgrounds omitted |
-| `resident-worker` | Ordered windows in one loaded scene/process | Recommended preview path; bounded silent replay only |
+| `resident-worker` | Ordered windows in one loaded scene/process | Recommended preview path; bounded replay with optional source music |
 
 Every output manifest must record renderer commit, binary SHA, skin SHA,
 chart/audio input SHAs, mode, state mode, time window, warmup, frame rate,
