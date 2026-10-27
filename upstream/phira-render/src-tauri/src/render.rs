@@ -312,7 +312,10 @@ pub async fn main() -> Result<()> {
                     NoteKind::Drag => SoundKind::Drag,
                     NoteKind::Flick => SoundKind::Flick,
                 };
-                (O + note.time as f64 + offset as f64, kind)
+                (
+                    ((O + note.time as f64 + offset as f64) * sample_rate as f64).round() as i64,
+                    kind,
+                )
             })
             .collect::<Vec<_>>();
 
@@ -331,8 +334,7 @@ pub async fn main() -> Result<()> {
                     chunk[local * 2 + 1] += frame.1 * volume_music;
                 }
             }
-            let mut place = |pos: f64, clip: &AudioClip, volume: f32| {
-                let event_start = (pos * sample_rate as f64).round() as i64;
+            let mut place = |event_start: i64, clip: &AudioClip, volume: f32| {
                 if event_start < 0 {
                     return;
                 }
@@ -349,9 +351,9 @@ pub async fn main() -> Result<()> {
                     chunk[destination + 1] += frame.1 * volume;
                 }
             };
-            for (pos, kind) in &note_events {
+            for (event_start, kind) in &note_events {
                 place(
-                    *pos,
+                    *event_start,
                     match kind {
                         SoundKind::Click => &sfx_click,
                         SoundKind::Drag => &sfx_drag,
@@ -363,7 +365,7 @@ pub async fn main() -> Result<()> {
             if ending_step > 0 {
                 let mut start = ending_start_frame;
                 while start < total_frames as i64 {
-                    place(start as f64 / sample_rate as f64, &ending, volume_music);
+                    place(start, &ending, volume_music);
                     start += ending_step;
                 }
             }
