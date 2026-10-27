@@ -11,6 +11,8 @@
 - 分块 full 音频混音和可复现的 manifest 校验；
 - `release-fast` 性能对照构建。
 
+性能前后数据、未测候选和复测规则见 [`docs/性能对比-20261027.md`](docs/性能对比-20261027.md)。
+
 当前 headless profile 从时间零开始固定帧回放，尚未实现随机状态跳转、checkpoint 或 resident worker。视频背景、完整粒子/命中特效和 full-faithful 视觉验收仍应使用完整 Phira/AppImage 参考路径。这个仓库不包含谱面、音频、曲绘、皮肤、AppImage、模型、迁移包或渲染视频；请自行准备有权使用的输入。
 
 ## 快速开始
