@@ -12,7 +12,7 @@
 - `release-fast` 性能对照构建。
 - 推荐的 `residentWindows` 顺序窗口输出，可在一次场景回放中生成多个静音 bounded 窗口；`tools/render_resident_windows.py` 提供可重复的调用入口。
 
-性能前后数据见 [`docs/性能对比-20261027.md`](docs/性能对比-20261027.md)，当前停点和多线程评估见 [`docs/性能优化停点-20261028.md`](docs/性能优化停点-20261028.md)。
+性能样本和 resident 窗口收益见 [`docs/性能对比-20261027.md`](docs/性能对比-20261027.md)。
 
 当前 headless profile 从时间零开始固定帧回放；`residentWindows` 只复用同一时间轴做有序窗口吞吐优化，不提供随机状态跳转或 checkpoint。它目前要求 `renderMode=full`、`stateMode=replay`、`audioMode=none`，视频背景、完整粒子/命中特效和 full-faithful 视觉验收仍应使用完整 Phira/AppImage 参考路径。这个仓库不包含谱面、音频、曲绘、皮肤、AppImage、模型、迁移包或渲染视频；请自行准备有权使用的输入。
 
@@ -34,7 +34,7 @@ cargo test --manifest-path upstream/headless-render/Cargo.toml
 cargo build --release --manifest-path upstream/headless-render/Cargo.toml
 ```
 
-完整中文说明见 [`docs/使用说明-zh.md`](docs/使用说明-zh.md)；公开发布和许可证检查见 [`PUBLIC-RELEASE-CHECKLIST.md`](PUBLIC-RELEASE-CHECKLIST.md)。
+完整中文说明见 [`docs/使用说明-zh.md`](docs/使用说明-zh.md)；第三方许可证和版权边界见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
 
 ## 许可证
 
