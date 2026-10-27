@@ -295,6 +295,27 @@ pub async fn main() -> Result<()> {
         let ending_start_frame = ((O + length + A) * sample_rate as f64).round() as i64;
         let ending_step = ending.frame_count() as i64;
 
+        #[derive(Clone, Copy)]
+        enum SoundKind {
+            Click,
+            Drag,
+            Flick,
+        }
+        let note_events = chart
+            .lines
+            .iter()
+            .flat_map(|it| it.notes.iter())
+            .filter(|it| !it.fake)
+            .map(|note| {
+                let kind = match note.kind {
+                    NoteKind::Click | NoteKind::Hold { .. } => SoundKind::Click,
+                    NoteKind::Drag => SoundKind::Drag,
+                    NoteKind::Flick => SoundKind::Flick,
+                };
+                (O + note.time as f64 + offset as f64, kind)
+            })
+            .collect::<Vec<_>>();
+
         let mut chunk = Vec::with_capacity(MIX_CHUNK_FRAMES * 2);
         let mut encoded = Vec::with_capacity(MIX_WRITE_CHUNK_BYTES);
         for chunk_start in (0..total_frames).step_by(MIX_CHUNK_FRAMES) {
@@ -328,13 +349,13 @@ pub async fn main() -> Result<()> {
                     chunk[destination + 1] += frame.1 * volume;
                 }
             };
-            for note in chart.lines.iter().flat_map(|it| it.notes.iter()).filter(|it| !it.fake) {
+            for (pos, kind) in &note_events {
                 place(
-                    O + note.time as f64 + offset as f64,
-                    match note.kind {
-                        NoteKind::Click | NoteKind::Hold { .. } => &sfx_click,
-                        NoteKind::Drag => &sfx_drag,
-                        NoteKind::Flick => &sfx_flick,
+                    *pos,
+                    match kind {
+                        SoundKind::Click => &sfx_click,
+                        SoundKind::Drag => &sfx_drag,
+                        SoundKind::Flick => &sfx_flick,
                     },
                     volume_sfx,
                 );
