@@ -1,6 +1,6 @@
 # BeatGlint Phira 优化渲染器
 
-这是一个面向 BeatGlint 的 Phira 渲染器优化版，采用 GPL-3.0-only 发布。项目保留真实 Phira 的谱面、判定线和几何渲染路径，并增加 Tauri-free 的 headless 单帧与短片段输出。
+这是一个面向 BeatGlint 的 Phira 渲染器优化版，采用 GPL-3.0-only 发布。项目保留真实 Phira 的谱面、判定线和几何渲染路径，并增加 Tauri-free 的 headless 单帧与短片段输出。当前 `main` 已将 headless 文件加载从 Tokio worker wake 改为逐帧轮询安全的线程 future。
 
 当前支持：
 
@@ -34,7 +34,7 @@ cargo test --manifest-path upstream/headless-render/Cargo.toml
 cargo build --release --manifest-path upstream/headless-render/Cargo.toml
 ```
 
-完整中文说明见 [`docs/使用说明-zh.md`](docs/使用说明-zh.md)；第三方许可证和版权边界见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
+完整中文说明见 [`docs/使用说明-zh.md`](docs/使用说明-zh.md)；异步唤醒修复和验证记录见 [`docs/异步唤醒修复-20261030.md`](docs/异步唤醒修复-20261030.md)；第三方许可证和版权边界见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
 
 ## 许可证
 

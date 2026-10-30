@@ -1,4 +1,4 @@
-use crate::{ext::spawn_task, info::ChartInfo};
+use crate::{ext::{spawn_task, thread_as_future}, info::ChartInfo};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use chardetng::EncodingDetector;
@@ -95,12 +95,12 @@ impl FileSystem for ExternalFileSystem {
         #[cfg(not(target_arch = "wasm32"))]
         {
             let mut file = self.0.open(path)?;
-            tokio::task::spawn_blocking(move || {
+            Ok(thread_as_future(move || {
                 let mut res = Vec::new();
                 file.read_to_end(&mut res)?;
-                Ok(res)
+                Ok::<Vec<u8>, std::io::Error>(res)
             })
-            .await?
+            .await?)
         }
     }
 

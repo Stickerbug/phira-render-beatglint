@@ -367,7 +367,10 @@ pub async fn spawn_task<R: Send + 'static>(f: impl FnOnce() -> Result<R> + Send 
     }
     #[cfg(not(target_arch = "wasm32"))]
     {
-        Ok(tokio::task::spawn_blocking(f).await??)
+        // prpr-macroquad polls futures once per frame and rejects external
+        // wake calls. Tokio's spawn_blocking future wakes from its worker
+        // thread, so use the existing polling-safe thread future instead.
+        thread_as_future(f).await
     }
 }
 
