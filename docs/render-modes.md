@@ -38,9 +38,11 @@ frame count.
 
 The current headless source also avoids the known macroquad async-waker panic
 on the tested file-loading paths. The fix uses `prpr::ext::thread_as_future`
-for `spawn_task` and external file reads. It does not change rendered frame
-bytes in the bounded smoke comparison. Full Phira/AppImage builds may use a
-different source tree and must retain their own stderr and parity review.
+for `spawn_task` and external file reads. The bounded segment and resident
+smoke evidence is recorded in [`docs/异步唤醒修复-20261030.md`](异步唤醒修复-20261030.md):
+the tested output bytes are unchanged and stderr contains no waker panic.
+Full Phira/AppImage builds may use a different source tree and must retain
+their own stderr and parity review.
 
 Bounded requests also carry an explicit `stateMode` (`replay` or
 `stateless`). `replay` is the only executable mode today: the scene advances

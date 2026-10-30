@@ -1,6 +1,6 @@
 # BeatGlint Phira 优化渲染器
 
-这是一个面向 BeatGlint 的 Phira 渲染器优化版，采用 GPL-3.0-only 发布。项目保留真实 Phira 的谱面、判定线和几何渲染路径，并增加 Tauri-free 的 headless 单帧与短片段输出。当前 `main` 已将 headless 文件加载从 Tokio worker wake 改为逐帧轮询安全的线程 future。
+这是一个面向 BeatGlint 的 Phira 渲染器优化版，采用 GPL-3.0-only 发布。项目保留真实 Phira 的谱面、判定线和几何渲染路径，并增加 Tauri-free 的 headless 单帧与短片段输出。当前 headless 实现已将 IO 后台任务（`spawn_task` 与外部文件读取）从 Tokio worker wake 改为逐帧轮询安全的线程 future。
 
 当前支持：
 

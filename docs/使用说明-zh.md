@@ -150,6 +150,8 @@ python tools/convert_chart_window.py \
 
 ## 验证结果
 
+当前 headless 修复记录见 [`docs/异步唤醒修复-20261030.md`](异步唤醒修复-20261030.md)。在记录的 segment 和 resident smoke 中，stderr 不再出现 `macroquad does not support waking futures`；这只覆盖公开 headless 构建和所列输入，完整 Phira/AppImage 仍需单独验收。
+
 验证已有 smoke manifest 不需要重新渲染。公开仓库不附带私有输入和 smoke manifest，运行时请把你自己的 manifest 路径传给工具：
 
 ```bash
