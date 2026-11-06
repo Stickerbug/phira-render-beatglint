@@ -6,7 +6,9 @@ legacy output path. This wrapper keeps the source params intact, injects the
 validated ``config.residentWindows`` list, and launches one resident replay.
 It is intentionally a thin process wrapper: it does not inspect or mutate
 charts, audio, skins, or existing output files. ``--audio-mode music-only``
-adds source music to each window without gameplay sound effects.
+adds source music to each window without gameplay sound effects.  The renderer
+uses scene/video seconds; ``--time-domain chart`` converts nominal gameplay
+seconds to that clock so a caller cannot accidentally include the loading card.
 """
 
 from __future__ import annotations
@@ -72,6 +74,42 @@ def validate_windows(windows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return result
 
 
+def convert_chart_windows(
+    windows: list[dict[str, Any]],
+    *,
+    fps: int,
+    game_clock_reset_s: float,
+    readback_lag_frames: int,
+) -> list[dict[str, Any]]:
+    """Convert chart-time windows to the renderer's frame-grid scene clock."""
+
+    if fps <= 0:
+        raise ValueError("fps must be positive for chart-time conversion")
+    if not math.isfinite(game_clock_reset_s) or game_clock_reset_s < 0:
+        raise ValueError("game clock reset must be finite and non-negative")
+    if readback_lag_frames < 0:
+        raise ValueError("readback lag frames must be non-negative")
+    converted: list[dict[str, Any]] = []
+    for window in windows:
+        # Keep the operation order identical to tools/convert_chart_window.py;
+        # at a frame boundary, splitting the multiplication can change ceil()
+        # by one frame because the reset is intentionally fractional.
+        start_frame = math.ceil((float(window["startS"]) + game_clock_reset_s) * fps)
+        end_frame = math.ceil((float(window["endS"]) + game_clock_reset_s) * fps)
+        start_frame += readback_lag_frames
+        end_frame += readback_lag_frames
+        if end_frame <= start_frame:
+            raise ValueError("chart-time window contains no frame on the requested fps grid")
+        converted.append(
+            {
+                **window,
+                "startS": start_frame / fps,
+                "endS": end_frame / fps,
+            }
+        )
+    return validate_windows(converted)
+
+
 def load_params(path: Path) -> dict[str, Any]:
     try:
         data = json.loads(path.read_text())
@@ -107,6 +145,24 @@ def main() -> int:
     parser.add_argument("--renderer-binary", type=Path, required=True)
     parser.add_argument("--assets", type=Path, required=True, help="Phira resource directory")
     parser.add_argument(
+        "--time-domain",
+        choices=("scene", "chart"),
+        default="scene",
+        help="window time domain; chart converts gameplay seconds past the loading/intro clock",
+    )
+    parser.add_argument(
+        "--game-clock-reset-s",
+        type=float,
+        default=3.5333335399627686,
+        help="scene seconds before chart time zero when --time-domain chart is used",
+    )
+    parser.add_argument(
+        "--readback-lag-frames",
+        type=int,
+        default=0,
+        help="explicit frame-grid lag; resident direct readback normally uses zero",
+    )
+    parser.add_argument(
         "--window",
         action="append",
         nargs=3,
@@ -126,6 +182,14 @@ def main() -> int:
     try:
         source = load_params(args.params)
         windows = validate_windows([parse_window(values) for values in args.window])
+        fps = int(source["config"].get("fps", 0))
+        if args.time_domain == "chart":
+            windows = convert_chart_windows(
+                windows,
+                fps=fps,
+                game_clock_reset_s=args.game_clock_reset_s,
+                readback_lag_frames=args.readback_lag_frames,
+            )
         payload = build_payload(source, windows, args.audio_mode)
         if not args.renderer_binary.is_file():
             raise ValueError(f"renderer binary does not exist: {args.renderer_binary}")
@@ -154,7 +218,19 @@ def main() -> int:
         return 127
     if completed.returncode != 0:
         return completed.returncode
-    print(json.dumps({"ok": True, "windows": windows}, ensure_ascii=False, indent=2))
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "time_domain": args.time_domain,
+                "game_clock_reset_s": args.game_clock_reset_s if args.time_domain == "chart" else None,
+                "readback_lag_frames": args.readback_lag_frames if args.time_domain == "chart" else None,
+                "windows": windows,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
     return 0
 
 

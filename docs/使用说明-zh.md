@@ -103,6 +103,23 @@ python tools/render_resident_windows.py \
   --payload-out /tmp/resident-request.json
 ```
 
+上面的窗口时间默认是渲染器场景时间。如果输入来自谱面标注，应显式使用
+`--time-domain chart`；它会把谱面时间转换到渲染器时间，并跳过加载卡和开场过渡：
+
+```bash
+python tools/render_resident_windows.py \
+  --params params.json \
+  --renderer-binary upstream/headless-render/target/release/phira-render-headless \
+  --assets /path/to/phira-render/assets \
+  --time-domain chart \
+  --window 40.0 41.0 /tmp/chart-window-40-41.mp4 \
+  --payload-out /tmp/chart-window-request.json
+```
+
+`--game-clock-reset-s` 默认使用当前 headless profile 的 `3.5333335399627686` 秒；
+如更换 Phira 构建或开场流程，应在 manifest 中记录实测值，不要在调用方另加一个未记录的偏移。
+resident 直接读回没有额外 PBO 延迟，因此 `--readback-lag-frames` 默认是 `0`。
+
 需要把源音乐一起写入每个窗口时，增加 `--audio-mode music-only`。这只包含源音乐，不包含判定音效和 ending 音频。
 
 脚本继承当前进程的 `DISPLAY`、Mesa 和 FFmpeg 环境变量；输出父目录必须先存在。它只负责启动一次 renderer，不负责上传网站或替换已有输入。
